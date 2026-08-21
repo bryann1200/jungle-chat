@@ -116,7 +116,7 @@ export function ChatApp({
       )
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "chatapp_chat_participants" },
+        { event: "*", schema: "public", table: "chatapp_chat_participants" },
         () => void loadChats(),
       )
       .subscribe();
