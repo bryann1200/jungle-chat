@@ -62,26 +62,38 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --radius: 1.25rem;
+  --background: oklch(0.975 0.021 92);
+  --foreground: oklch(0.32 0.06 62);
+  --card: oklch(0.995 0.012 95);
+  --card-foreground: oklch(0.32 0.06 62);
+  --popover: oklch(0.995 0.012 95);
+  --popover-foreground: oklch(0.32 0.06 62);
+  --primary: oklch(0.87 0.17 92);
+  --primary-foreground: oklch(0.3 0.07 62);
+  --secondary: oklch(0.9 0.09 148);
+  --secondary-foreground: oklch(0.32 0.08 150);
+  --muted: oklch(0.95 0.02 95);
+  --muted-foreground: oklch(0.52 0.05 70);
+  --accent: oklch(0.9 0.09 148);
+  --accent-foreground: oklch(0.32 0.08 150);
+  --destructive: oklch(0.6 0.21 27);
+  --destructive-foreground: oklch(0.98 0.01 95);
+  --border: oklch(0.42 0.07 62);
+  --input: oklch(0.88 0.03 85);
+  --ring: oklch(0.8 0.15 92);
+
+  --banana: oklch(0.87 0.17 92);
+  --jungle: oklch(0.55 0.13 150);
+  --leaf: oklch(0.78 0.13 148);
+  --bark: oklch(0.45 0.08 60);
+  --mango: oklch(0.76 0.16 60);
+  --cream: oklch(0.975 0.021 92);
+
+  --shadow-bubbly: 0 6px 0 0 color-mix(in oklab, var(--bark) 55%, transparent);
+  --shadow-soft: 0 10px 24px -12px color-mix(in oklab, var(--bark) 60%, transparent);
+  --font-display: "Baloo 2", "Fredoka", ui-rounded, system-ui, sans-serif;
+
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -96,6 +108,7 @@
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.704 0.04 256.788);
 }
+
 
 .dark {
   --background: oklch(0.129 0.042 264.695);
