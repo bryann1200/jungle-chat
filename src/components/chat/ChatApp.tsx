@@ -220,7 +220,7 @@ export function ChatApp({
     const channel = supabase
       .channel(`chatapp-typing-${activeId}`, { config: { broadcast: { self: false } } })
       .on("broadcast", { event: "typing" }, (payload) => {
-        const id = (payload.payload as { userId?: string })?.userId;
+        const id = (payload['payload'] as { userId?: string } | undefined)?.userId;
         if (!id || id === user.id) return;
         setTyping((prev) => ({ ...prev, [id]: Date.now() }));
       })
