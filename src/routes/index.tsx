@@ -40,6 +40,16 @@ function Index() {
   }, []);
 
   useEffect(() => {
+    if (!session?.user) return;
+    const pending = localStorage.getItem("chatapp_pending_username");
+    const fallback = session.user.email?.split("@")[0] ?? "monkey";
+    void supabase
+      .from("chatapp_profiles")
+      .upsert({ id: session.user.id, username: pending || fallback }, { onConflict: "id" })
+      .then(() => localStorage.removeItem("chatapp_pending_username"));
+  }, [session]);
+
+  useEffect(() => {
     void supabase
       .from("chatapp_settings")
       .select("background_url")
@@ -47,6 +57,7 @@ function Index() {
       .maybeSingle()
       .then(({ data }) => setBackground((data?.background_url as string | null) ?? null));
   }, []);
+
 
   if (!ready) {
     return (
