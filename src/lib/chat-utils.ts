@@ -22,3 +22,13 @@ export function formatTime(iso: string) {
   const d = new Date(iso);
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
+
+export const PHOTO_PREFIX = "[photo]";
+
+export function photoUrl(content: string) {
+  return content.startsWith(PHOTO_PREFIX) ? content.slice(PHOTO_PREFIX.length) : null;
+}
+
+export function previewText(content: string) {
+  return photoUrl(content) ? "📷 Photo" : content;
+}

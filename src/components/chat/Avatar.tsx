@@ -5,15 +5,17 @@ export function JungleAvatar({
   color,
   size = 44,
   emoji,
+  imageUrl,
 }: {
   name: string;
   color?: string | null | undefined;
   size?: number | undefined;
   emoji?: string | undefined;
+  imageUrl?: string | null | undefined;
 }) {
   return (
     <div
-      className="flex shrink-0 items-center justify-center rounded-full border-[3px] border-bark font-bold text-bark"
+      className="flex shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] border-bark font-bold text-bark"
       style={{
         width: size,
         height: size,
@@ -23,7 +25,16 @@ export function JungleAvatar({
       }}
       aria-hidden
     >
-      {emoji ?? initials(name || "??")}
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt=""
+          className="size-full object-cover"
+          loading="lazy"
+        />
+      ) : (
+        (emoji ?? initials(name || "??"))
+      )}
     </div>
   );
 }
