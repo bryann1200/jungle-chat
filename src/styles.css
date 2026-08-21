@@ -62,26 +62,38 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --radius: 1.25rem;
+  --background: oklch(0.975 0.021 92);
+  --foreground: oklch(0.32 0.06 62);
+  --card: oklch(0.995 0.012 95);
+  --card-foreground: oklch(0.32 0.06 62);
+  --popover: oklch(0.995 0.012 95);
+  --popover-foreground: oklch(0.32 0.06 62);
+  --primary: oklch(0.87 0.17 92);
+  --primary-foreground: oklch(0.3 0.07 62);
+  --secondary: oklch(0.9 0.09 148);
+  --secondary-foreground: oklch(0.32 0.08 150);
+  --muted: oklch(0.95 0.02 95);
+  --muted-foreground: oklch(0.52 0.05 70);
+  --accent: oklch(0.9 0.09 148);
+  --accent-foreground: oklch(0.32 0.08 150);
+  --destructive: oklch(0.6 0.21 27);
+  --destructive-foreground: oklch(0.98 0.01 95);
+  --border: oklch(0.42 0.07 62);
+  --input: oklch(0.88 0.03 85);
+  --ring: oklch(0.8 0.15 92);
+
+  --banana: oklch(0.87 0.17 92);
+  --jungle: oklch(0.55 0.13 150);
+  --leaf: oklch(0.78 0.13 148);
+  --bark: oklch(0.45 0.08 60);
+  --mango: oklch(0.76 0.16 60);
+  --cream: oklch(0.975 0.021 92);
+
+  --shadow-bubbly: 0 6px 0 0 color-mix(in oklab, var(--bark) 55%, transparent);
+  --shadow-soft: 0 10px 24px -12px color-mix(in oklab, var(--bark) 60%, transparent);
+  --font-display: "Baloo 2", "Fredoka", ui-rounded, system-ui, sans-serif;
+
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -96,6 +108,7 @@
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.704 0.04 256.788);
 }
+
 
 .dark {
   --background: oklch(0.129 0.042 264.695);
@@ -141,4 +154,39 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
+}
+
+@theme inline {
+  --color-banana: var(--banana);
+  --color-jungle: var(--jungle);
+  --color-leaf: var(--leaf);
+  --color-bark: var(--bark);
+  --color-mango: var(--mango);
+  --color-cream: var(--cream);
+  --font-display: var(--font-display);
+}
+
+@layer base {
+  html,
+  body {
+    font-family: var(--font-display);
+  }
+  h1,
+  h2,
+  h3 {
+    font-weight: 700;
+  }
+}
+
+@utility jungle-emoji-bg {
+  background-color: var(--cream);
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Ctext x='16' y='44' font-size='30' opacity='0.28'%3E%F0%9F%90%B5%3C/text%3E%3Ctext x='120' y='30' font-size='26' opacity='0.24'%3E%F0%9F%8D%8C%3C/text%3E%3Ctext x='70' y='96' font-size='30' opacity='0.22'%3E%F0%9F%8C%B4%3C/text%3E%3Ctext x='170' y='84' font-size='26' opacity='0.26'%3E%F0%9F%99%88%3C/text%3E%3Ctext x='20' y='150' font-size='26' opacity='0.24'%3E%F0%9F%99%89%3C/text%3E%3Ctext x='118' y='160' font-size='28' opacity='0.22'%3E%F0%9F%99%8A%3C/text%3E%3Ctext x='176' y='200' font-size='26' opacity='0.26'%3E%F0%9F%8C%BF%3C/text%3E%3Ctext x='56' y='206' font-size='24' opacity='0.22'%3E%F0%9F%8D%8C%3C/text%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+@utility card-bubbly {
+  border: 3px solid var(--bark);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  background-color: var(--card);
 }

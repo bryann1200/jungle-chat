@@ -1,24 +1,64 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
+import { AuthScreen } from "@/components/chat/AuthScreen";
+import { ChatApp } from "@/components/chat/ChatApp";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Monkey Chat — Real-time jungle messaging" },
+      {
+        name: "description",
+        content:
+          "Chat in real time with your troop. A playful monkey and banana themed messenger with group chats and instant delivery.",
+      },
+      { property: "og:title", content: "Monkey Chat — Real-time jungle messaging" },
+      {
+        property: "og:description",
+        content: "A playful monkey and banana themed real-time chat app for you and your troop.",
+      },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+  const [session, setSession] = useState<Session | null>(null);
+  const [ready, setReady] = useState(false);
+  const [background, setBackground] = useState<string | null>(null);
+
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setReady(true);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    void supabase
+      .from("chatapp_settings")
+      .select("background_url")
+      .eq("id", true)
+      .maybeSingle()
+      .then(({ data }) => setBackground((data?.background_url as string | null) ?? null));
+  }, []);
+
+  if (!ready) {
+    return (
+      <div className="jungle-emoji-bg flex min-h-screen items-center justify-center text-5xl">
+        🐵
+      </div>
+    );
+  }
+
+  return session ? (
+    <ChatApp user={session.user} onBackgroundChange={setBackground} />
+  ) : (
+    <AuthScreen backgroundUrl={background} />
   );
 }
