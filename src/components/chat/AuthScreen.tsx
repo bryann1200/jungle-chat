@@ -16,15 +16,13 @@ export function AuthScreen({ backgroundUrl }: { backgroundUrl: string | null }) 
     try {
       if (mode === "signup") {
         if (!username.trim()) throw new Error("Pick a monkey name!");
-        const { data, error: err } = await supabase.auth.signUp({ email, password });
+        localStorage.setItem("chatapp_pending_username", username.trim());
+        const { data, error: err } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: window.location.origin },
+        });
         if (err) throw err;
-        const uid = data.user?.id;
-        if (uid) {
-          const { error: pErr } = await supabase
-            .from("chatapp_profiles")
-            .insert({ id: uid, username: username.trim() });
-          if (pErr && !pErr.message.includes("duplicate")) throw pErr;
-        }
         if (!data.session) {
           setError("Account created! Check your email to confirm, then sign in.");
           setMode("signin");
@@ -34,11 +32,17 @@ export function AuthScreen({ backgroundUrl }: { backgroundUrl: string | null }) 
         if (err) throw err;
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went bananas.");
+      const raw = err instanceof Error ? err.message : "Something went bananas.";
+      setError(
+        /rate limit/i.test(raw)
+          ? "🍌 Too many signup emails were sent from this project recently — the email limit is temporarily maxed out. Wait an hour and try again, or turn off email confirmation in your backend auth settings."
+          : raw,
+      );
     } finally {
       setBusy(false);
     }
   }
+
 
   return (
     <div
