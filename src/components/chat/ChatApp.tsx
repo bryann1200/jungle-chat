@@ -1,13 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { supabase, type Chat, type Message, type Profile } from "@/lib/supabase";
+import {
+  supabase,
+  type Chat,
+  type Message,
+  type Profile,
+  type Reaction,
+} from "@/lib/supabase";
 import { formatTime } from "@/lib/chat-utils";
 import { JungleAvatar } from "./Avatar";
 import { NewChatModal } from "./NewChatModal";
 import { SettingsModal } from "./SettingsModal";
 
+const REACTION_CHOICES = ["❤️", "🐵", "🍌", "😂", "🔥"];
+const TYPING_TTL = 4000;
+
 type ChatMeta = Chat & {
   memberIds: string[];
+  readAt: Record<string, string | null>;
   lastMessage: Message | null;
 };
 
@@ -22,13 +32,17 @@ export function ChatApp({
   const [chats, setChats] = useState<ChatMeta[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [reactions, setReactions] = useState<Reaction[]>([]);
+  const [typing, setTyping] = useState<Record<string, number>>({});
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const activeIdRef = useRef<string | null>(null);
-  activeIdRef.current = activeId;
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const lastTypingSent = useRef(0);
 
   const loadChats = useCallback(async () => {
     const [{ data: myParts }, { data: allProfiles }] = await Promise.all([
@@ -49,7 +63,10 @@ export function ChatApp({
 
     const [{ data: chatRows }, { data: parts }, { data: msgs }] = await Promise.all([
       supabase.from("chatapp_chats").select("*").in("id", ids),
-      supabase.from("chatapp_chat_participants").select("chat_id, user_id").in("chat_id", ids),
+      supabase
+        .from("chatapp_chat_participants")
+        .select("chat_id, user_id, last_read_at")
+        .in("chat_id", ids),
       supabase
         .from("chatapp_messages")
         .select("*")
@@ -64,13 +81,17 @@ export function ChatApp({
       if (!last[msg.chat_id]) last[msg.chat_id] = msg;
     });
 
-    const metas: ChatMeta[] = (chatRows ?? []).map((c) => ({
-      ...(c as Chat),
-      memberIds: (parts ?? [])
-        .filter((p) => p.chat_id === c.id)
-        .map((p) => p.user_id as string),
-      lastMessage: last[c.id as string] ?? null,
-    }));
+    const metas: ChatMeta[] = (chatRows ?? []).map((c) => {
+      const mine = (parts ?? []).filter((p) => p.chat_id === c.id);
+      const readAt: Record<string, string | null> = {};
+      mine.forEach((p) => (readAt[p.user_id as string] = (p.last_read_at as string) ?? null));
+      return {
+        ...(c as Chat),
+        memberIds: mine.map((p) => p.user_id as string),
+        readAt,
+        lastMessage: last[c.id as string] ?? null,
+      };
+    });
     metas.sort((a, b) => {
       const at = a.lastMessage?.created_at ?? a.created_at;
       const bt = b.lastMessage?.created_at ?? b.created_at;
@@ -84,7 +105,7 @@ export function ChatApp({
     void loadChats();
   }, [loadChats]);
 
-  // Global realtime for sidebar previews
+  // Global realtime for sidebar previews + read receipts
   useEffect(() => {
     const channel = supabase
       .channel("chatapp-all-messages")
@@ -93,26 +114,61 @@ export function ChatApp({
         { event: "INSERT", schema: "public", table: "chatapp_messages" },
         () => void loadChats(),
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "chatapp_chat_participants" },
+        () => void loadChats(),
+      )
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
     };
   }, [loadChats]);
 
-  // Load + subscribe to the active chat
+  const markRead = useCallback(
+    async (chatId: string) => {
+      await supabase
+        .from("chatapp_chat_participants")
+        .update({ last_read_at: new Date().toISOString() })
+        .eq("chat_id", chatId)
+        .eq("user_id", user.id);
+      void loadChats();
+    },
+    [user.id, loadChats],
+  );
+
+  // Load + subscribe to the active chat (messages + reactions)
   useEffect(() => {
     if (!activeId) {
       setMessages([]);
+      setReactions([]);
       return;
     }
     let cancelled = false;
+    setTyping({});
+    void markRead(activeId);
+
     void (async () => {
       const { data } = await supabase
         .from("chatapp_messages")
         .select("*")
         .eq("chat_id", activeId)
         .order("created_at", { ascending: true });
-      if (!cancelled) setMessages((data ?? []) as Message[]);
+      if (cancelled) return;
+      const rows = (data ?? []) as Message[];
+      setMessages(rows);
+      if (rows.length) {
+        const { data: rx } = await supabase
+          .from("chatapp_message_reactions")
+          .select("*")
+          .in(
+            "message_id",
+            rows.map((m) => m.id),
+          );
+        if (!cancelled) setReactions((rx ?? []) as Reaction[]);
+      } else {
+        setReactions([]);
+      }
     })();
 
     const channel = supabase
@@ -130,6 +186,21 @@ export function ChatApp({
           setMessages((prev) =>
             prev.some((m) => m.id === msg.id) ? prev : [...prev, msg],
           );
+          if (msg.sender_id !== user.id) void markRead(activeId);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "chatapp_message_reactions" },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Reaction;
+          if (payload.eventType === "DELETE") {
+            setReactions((prev) => prev.filter((r) => r.id !== row.id));
+          } else {
+            setReactions((prev) =>
+              prev.some((r) => r.id === row.id) ? prev : [...prev, row],
+            );
+          }
         },
       )
       .subscribe();
@@ -138,7 +209,52 @@ export function ChatApp({
       cancelled = true;
       void supabase.removeChannel(channel);
     };
-  }, [activeId]);
+  }, [activeId, user.id, markRead]);
+
+  // Typing indicator channel (realtime broadcast, no storage)
+  useEffect(() => {
+    if (!activeId) {
+      typingChannelRef.current = null;
+      return;
+    }
+    const channel = supabase
+      .channel(`chatapp-typing-${activeId}`, { config: { broadcast: { self: false } } })
+      .on("broadcast", { event: "typing" }, (payload) => {
+        const id = (payload['payload'] as { userId?: string } | undefined)?.userId;
+        if (!id || id === user.id) return;
+        setTyping((prev) => ({ ...prev, [id]: Date.now() }));
+      })
+      .subscribe();
+    typingChannelRef.current = channel;
+    const timer = setInterval(() => {
+      setTyping((prev) => {
+        const now = Date.now();
+        const next: Record<string, number> = {};
+        let changed = false;
+        Object.entries(prev).forEach(([id, t]) => {
+          if (now - t < TYPING_TTL) next[id] = t;
+          else changed = true;
+        });
+        return changed ? next : prev;
+      });
+    }, 1000);
+    return () => {
+      clearInterval(timer);
+      typingChannelRef.current = null;
+      void supabase.removeChannel(channel);
+    };
+  }, [activeId, user.id]);
+
+  function notifyTyping() {
+    const now = Date.now();
+    if (now - lastTypingSent.current < 1500) return;
+    lastTypingSent.current = now;
+    void typingChannelRef.current?.send({
+      type: "broadcast",
+      event: "typing",
+      payload: { userId: user.id },
+    });
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -164,6 +280,29 @@ export function ChatApp({
     },
     [profiles, user.id],
   );
+
+  async function toggleReaction(messageId: string, emoji: string) {
+    setPickerFor(null);
+    const existing = reactions.find(
+      (r) => r.message_id === messageId && r.user_id === user.id && r.emoji === emoji,
+    );
+    if (existing) {
+      setReactions((prev) => prev.filter((r) => r.id !== existing.id));
+      await supabase.from("chatapp_message_reactions").delete().eq("id", existing.id);
+      return;
+    }
+    const { data } = await supabase
+      .from("chatapp_message_reactions")
+      .insert({ message_id: messageId, user_id: user.id, emoji })
+      .select()
+      .single();
+    if (data)
+      setReactions((prev) =>
+        prev.some((r) => r.id === (data as Reaction).id)
+          ? prev
+          : [...prev, data as Reaction],
+      );
+  }
 
   async function send() {
     const content = draft.trim();
@@ -206,6 +345,43 @@ export function ChatApp({
 
   const myName = profiles[user.id]?.username ?? "me";
 
+  const visibleChats = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return chats;
+    return chats.filter((c) => {
+      const names = [
+        chatTitle(c),
+        c.name ?? "",
+        ...c.memberIds.map((id) => profiles[id]?.username ?? ""),
+      ];
+      return names.some((n) => n.toLowerCase().includes(q));
+    });
+  }, [chats, search, chatTitle, profiles]);
+
+  const typingNames = useMemo(
+    () =>
+      Object.keys(typing)
+        .filter((id) => activeChat?.memberIds.includes(id))
+        .map((id) => profiles[id]?.username ?? "monkey"),
+    [typing, profiles, activeChat],
+  );
+
+  // Read state: who (other than me) has read up to a given message time
+  function readersOf(iso: string) {
+    if (!activeChat) return [];
+    return activeChat.memberIds.filter(
+      (id) => id !== user.id && (activeChat.readAt[id] ?? "") >= iso,
+    );
+  }
+
+  const lastMineId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m && m.sender_id === user.id && !m.pending && !m.failed) return m.id;
+    }
+    return null;
+  }, [messages, user.id]);
+
   return (
     <div className="flex h-dvh flex-col bg-cream">
       <header className="flex items-center gap-3 border-b-[3px] border-bark bg-banana px-4 py-3">
@@ -233,7 +409,7 @@ export function ChatApp({
             activeId ? "hidden sm:flex" : "flex"
           }`}
         >
-          <div className="border-b-[3px] border-bark p-3">
+          <div className="space-y-2 border-b-[3px] border-bark p-3">
             <button
               onClick={() => setShowNew(true)}
               className="w-full rounded-full border-[3px] border-bark bg-banana px-4 py-2.5 font-extrabold text-bark"
@@ -241,6 +417,13 @@ export function ChatApp({
             >
               🍌 New chat
             </button>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search chats"
+              placeholder="🔍 Search monkeys & groups"
+              className="w-full rounded-full border-[3px] border-bark bg-card px-4 py-2 outline-none focus:border-jungle"
+            />
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {loading && <p className="p-4 text-center text-muted-foreground">Swinging in...</p>}
@@ -249,12 +432,24 @@ export function ChatApp({
                 🐵 No chats yet — go bananas and start one!
               </p>
             )}
-            {chats.map((chat) => {
+            {!loading && chats.length > 0 && visibleChats.length === 0 && (
+              <p className="p-6 text-center font-bold text-bark">
+                🙈 No chats match "{search}"
+              </p>
+            )}
+            {visibleChats.map((chat) => {
               const title = chatTitle(chat);
+              const mineRead = chat.readAt[user.id] ?? "";
+              const unread =
+                !!chat.lastMessage &&
+                chat.lastMessage.sender_id !== user.id &&
+                chat.lastMessage.created_at > mineRead;
               return (
                 <button
                   key={chat.id}
-                  onClick={() => setActiveId(chat.id)}
+                  onClick={() => {
+                    setActiveId(chat.id);
+                  }}
                   className={`mb-2 flex w-full items-center gap-3 rounded-2xl border-[3px] border-bark px-3 py-2 text-left ${
                     chat.id === activeId ? "bg-banana" : "bg-card"
                   }`}
@@ -266,10 +461,20 @@ export function ChatApp({
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-extrabold text-bark">{title}</span>
-                    <span className="block truncate text-sm text-muted-foreground">
+                    <span
+                      className={`block truncate text-sm ${
+                        unread ? "font-bold text-bark" : "text-muted-foreground"
+                      }`}
+                    >
                       {chat.lastMessage?.content ?? "Say hi 🙉"}
                     </span>
                   </span>
+                  {unread && (
+                    <span
+                      aria-label="Unread"
+                      className="size-3 shrink-0 rounded-full border-2 border-bark bg-mango"
+                    />
+                  )}
                 </button>
               );
             })}
@@ -299,12 +504,19 @@ export function ChatApp({
                 />
                 <div className="min-w-0">
                   <p className="truncate font-extrabold text-bark">{chatTitle(activeChat)}</p>
-                  {activeChat.is_group && (
-                    <p className="truncate text-xs text-muted-foreground">
-                      {activeChat.memberIds
-                        .map((id) => (id === user.id ? myName : profiles[id]?.username ?? "?"))
-                        .join(" · ")}
+                  {typingNames.length > 0 ? (
+                    <p className="truncate text-xs font-bold text-jungle">
+                      🐒 {typingNames.join(", ")} {typingNames.length > 1 ? "are" : "is"}{" "}
+                      typing...
                     </p>
+                  ) : (
+                    activeChat.is_group && (
+                      <p className="truncate text-xs text-muted-foreground">
+                        {activeChat.memberIds
+                          .map((id) => (id === user.id ? myName : profiles[id]?.username ?? "?"))
+                          .join(" · ")}
+                      </p>
+                    )
                   )}
                 </div>
               </div>
@@ -312,32 +524,101 @@ export function ChatApp({
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
                 {messages.map((m) => {
                   const mine = m.sender_id === user.id;
+                  const mrx = reactions.filter((r) => r.message_id === m.id);
+                  const grouped = Object.entries(
+                    mrx.reduce<Record<string, string[]>>((acc, r) => {
+                      (acc[r.emoji] ??= []).push(r.user_id);
+                      return acc;
+                    }, {}),
+                  );
+                  const readers = mine && m.id === lastMineId ? readersOf(m.created_at) : [];
                   return (
                     <div
                       key={m.id}
-                      className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                      className={`flex flex-col ${mine ? "items-end" : "items-start"}`}
                     >
-                      <div
-                        className={`max-w-[78%] rounded-3xl border-[3px] border-bark px-4 py-2 ${
-                          mine ? "bg-banana" : "bg-leaf"
-                        } ${m.pending ? "opacity-60" : ""} ${m.failed ? "border-destructive" : ""}`}
-                        style={{ boxShadow: "var(--shadow-soft)" }}
-                      >
-                        {!mine && activeChat.is_group && (
-                          <p className="text-xs font-extrabold text-jungle">
-                            {profiles[m.sender_id]?.username ?? "monkey"}
+                      <div className={`flex max-w-[85%] items-center gap-1 ${mine ? "flex-row-reverse" : ""}`}>
+                        <div
+                          className={`rounded-3xl border-[3px] border-bark px-4 py-2 ${
+                            mine ? "bg-banana" : "bg-leaf"
+                          } ${m.pending ? "opacity-60" : ""} ${
+                            m.failed ? "border-destructive" : ""
+                          }`}
+                          style={{ boxShadow: "var(--shadow-soft)" }}
+                        >
+                          {!mine && activeChat.is_group && (
+                            <p className="text-xs font-extrabold text-jungle">
+                              {profiles[m.sender_id]?.username ?? "monkey"}
+                            </p>
+                          )}
+                          <p className="whitespace-pre-wrap break-words text-bark">{m.content}</p>
+                          <p className="mt-0.5 text-right text-[11px] text-bark/60">
+                            {m.failed ? "❌ Failed to send" : formatTime(m.created_at)}
                           </p>
+                        </div>
+                        {!m.pending && !m.failed && (
+                          <button
+                            onClick={() => setPickerFor(pickerFor === m.id ? null : m.id)}
+                            aria-label="React to message"
+                            className="rounded-full border-2 border-bark bg-card px-1.5 py-0.5 text-xs opacity-70 hover:opacity-100"
+                          >
+                            ＋
+                          </button>
                         )}
-                        <p className="whitespace-pre-wrap break-words text-bark">{m.content}</p>
-                        <p className="mt-0.5 text-right text-[11px] text-bark/60">
-                          {m.failed ? "❌ Failed to send" : formatTime(m.created_at)}
-                        </p>
                       </div>
+
+                      {pickerFor === m.id && (
+                        <div className="mt-1 flex gap-1 rounded-full border-[3px] border-bark bg-card px-2 py-1">
+                          {REACTION_CHOICES.map((e) => (
+                            <button
+                              key={e}
+                              onClick={() => void toggleReaction(m.id, e)}
+                              className="text-lg transition-transform hover:scale-125"
+                            >
+                              {e}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {grouped.length > 0 && (
+                        <div className={`mt-1 flex flex-wrap gap-1 ${mine ? "justify-end" : ""}`}>
+                          {grouped.map(([emoji, users]) => (
+                            <button
+                              key={emoji}
+                              onClick={() => void toggleReaction(m.id, emoji)}
+                              className={`rounded-full border-2 border-bark px-2 py-0.5 text-xs font-bold text-bark ${
+                                users.includes(user.id) ? "bg-mango" : "bg-card"
+                              }`}
+                            >
+                              {emoji} {users.length}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {readers.length > 0 && (
+                        <p className="mt-0.5 text-[11px] font-bold text-jungle">
+                          👀 Read
+                          {activeChat.is_group
+                            ? ` by ${readers
+                                .map((id) => profiles[id]?.username ?? "monkey")
+                                .join(", ")}`
+                            : ""}
+                        </p>
+                      )}
                     </div>
                   );
                 })}
                 <div ref={bottomRef} />
               </div>
+
+              {typingNames.length > 0 && (
+                <p className="px-4 pb-1 text-sm font-bold text-jungle">
+                  🐵 {typingNames.join(", ")} {typingNames.length > 1 ? "are" : "is"} typing
+                  <span className="animate-pulse">...</span>
+                </p>
+              )}
 
               <form
                 onSubmit={(e) => {
@@ -348,7 +629,10 @@ export function ChatApp({
               >
                 <input
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
+                  onChange={(e) => {
+                    setDraft(e.target.value);
+                    notifyTyping();
+                  }}
                   placeholder="Type something bananas..."
                   className="min-w-0 flex-1 rounded-full border-[3px] border-bark bg-card px-4 py-2.5 outline-none focus:border-jungle"
                 />

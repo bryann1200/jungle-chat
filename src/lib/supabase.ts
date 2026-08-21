@@ -25,6 +25,19 @@ export type Chat = {
   created_at: string;
 };
 
+export type Participant = {
+  chat_id: string;
+  user_id: string;
+  last_read_at: string | null;
+};
+
+export type Reaction = {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+};
+
 export type Message = {
   id: string;
   chat_id: string;
