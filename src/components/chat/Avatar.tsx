@@ -7,9 +7,9 @@ export function JungleAvatar({
   emoji,
 }: {
   name: string;
-  color?: string | null;
-  size?: number;
-  emoji?: string;
+  color?: string | null | undefined;
+  size?: number | undefined;
+  emoji?: string | undefined;
 }) {
   return (
     <div
