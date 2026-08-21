@@ -155,3 +155,38 @@
     color: var(--color-foreground);
   }
 }
+
+@theme inline {
+  --color-banana: var(--banana);
+  --color-jungle: var(--jungle);
+  --color-leaf: var(--leaf);
+  --color-bark: var(--bark);
+  --color-mango: var(--mango);
+  --color-cream: var(--cream);
+  --font-display: var(--font-display);
+}
+
+@layer base {
+  html,
+  body {
+    font-family: var(--font-display);
+  }
+  h1,
+  h2,
+  h3 {
+    font-weight: 700;
+  }
+}
+
+@utility jungle-emoji-bg {
+  background-color: var(--cream);
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Ctext x='16' y='44' font-size='30' opacity='0.28'%3E%F0%9F%90%B5%3C/text%3E%3Ctext x='120' y='30' font-size='26' opacity='0.24'%3E%F0%9F%8D%8C%3C/text%3E%3Ctext x='70' y='96' font-size='30' opacity='0.22'%3E%F0%9F%8C%B4%3C/text%3E%3Ctext x='170' y='84' font-size='26' opacity='0.26'%3E%F0%9F%99%88%3C/text%3E%3Ctext x='20' y='150' font-size='26' opacity='0.24'%3E%F0%9F%99%89%3C/text%3E%3Ctext x='118' y='160' font-size='28' opacity='0.22'%3E%F0%9F%99%8A%3C/text%3E%3Ctext x='176' y='200' font-size='26' opacity='0.26'%3E%F0%9F%8C%BF%3C/text%3E%3Ctext x='56' y='206' font-size='24' opacity='0.22'%3E%F0%9F%8D%8C%3C/text%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+@utility card-bubbly {
+  border: 3px solid var(--bark);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  background-color: var(--card);
+}
