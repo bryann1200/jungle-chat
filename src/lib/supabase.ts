@@ -15,6 +15,9 @@ export type Profile = {
   id: string;
   username: string;
   avatar_color: string | null;
+  avatar_url?: string | null;
+  bio?: string | null;
+  status_emoji?: string | null;
 };
 
 export type Chat = {
