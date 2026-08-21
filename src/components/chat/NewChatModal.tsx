@@ -32,17 +32,24 @@ export function NewChatModal({
     setBusy(true);
     setError(null);
     try {
+      // Always use the live session user id — RLS requires created_by = auth.uid()
+      const { data: auth, error: aErr } = await supabase.auth.getUser();
+      if (aErr) throw aErr;
+      const myId = auth.user?.id ?? me;
+      if (!myId) throw new Error("You are signed out — please sign in again.");
+
       const { data: chat, error: cErr } = await supabase
         .from("chatapp_chats")
         .insert({
           is_group: isGroup,
           name: isGroup ? groupName.trim() : null,
-          created_by: me,
+          created_by: myId,
         })
         .select()
         .single();
       if (cErr) throw cErr;
-      const rows = [me, ...selected].map((user_id) => ({ chat_id: chat.id, user_id }));
+      const memberIds = Array.from(new Set([myId, ...selected.filter((id) => id !== myId)]));
+      const rows = memberIds.map((user_id) => ({ chat_id: chat.id, user_id }));
       const { error: pErr } = await supabase.from("chatapp_chat_participants").insert(rows);
       if (pErr) throw pErr;
       onCreated(chat.id);
