@@ -794,6 +794,28 @@ export function ChatApp({
           onSaved={onBackgroundChange}
         />
       )}
+      {lightbox && (
+        <div
+          role="dialog"
+          aria-label="Photo viewer"
+          onClick={() => setLightbox(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-bark/80 p-4"
+        >
+          <img
+            src={lightbox}
+            alt="Full size photo"
+            className="max-h-full max-w-full rounded-3xl border-[3px] border-banana object-contain"
+          />
+          <button
+            onClick={() => setLightbox(null)}
+            aria-label="Close photo"
+            className="absolute right-4 top-4 rounded-full border-[3px] border-bark bg-banana px-3 py-1 text-xl font-bold text-bark"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
     </div>
   );
 }
