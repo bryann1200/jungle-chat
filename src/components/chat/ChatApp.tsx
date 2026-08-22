@@ -724,7 +724,29 @@ export function ChatApp({
                   void send();
                 }}
                 className="flex items-center gap-2 border-t-[3px] border-bark bg-cream p-3"
-              >
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    const caption = draft.trim();
+                    setDraft("");
+                    void sendPhoto(file, caption);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  aria-label="Send a photo"
+                  className="rounded-full border-[3px] border-bark bg-leaf px-3 py-2.5 text-xl"
+                >
+                  🖼️
+                </button>
+
                 <input
                   value={draft}
                   onChange={(e) => {
