@@ -46,7 +46,13 @@ export type Message = {
   chat_id: string;
   sender_id: string;
   content: string;
+  image_url?: string | null;
   created_at: string;
   pending?: boolean;
   failed?: boolean;
+  /** local object URL used while an image upload is in flight */
+  localUrl?: string;
+  /** kept in memory so a failed photo send can be retried */
+  file?: File;
 };
+

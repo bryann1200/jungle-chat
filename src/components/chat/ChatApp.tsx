@@ -40,6 +40,8 @@ export function ChatApp({
   const [showNew, setShowNew] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const lastTypingSent = useRef(0);
@@ -338,6 +340,75 @@ export function ChatApp({
     void loadChats();
   }
 
+  async function sendPhoto(file: File, caption: string) {
+    if (!activeId) return;
+    const chatId = activeId;
+    const tempId = `temp-${crypto.randomUUID()}`;
+    const localUrl = URL.createObjectURL(file);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        chat_id: chatId,
+        sender_id: user.id,
+        content: caption,
+        created_at: new Date().toISOString(),
+        pending: true,
+        localUrl,
+        file,
+      },
+    ]);
+    await uploadAndInsert(tempId, chatId, file, caption);
+  }
+
+  async function uploadAndInsert(tempId: string, chatId: string, file: File, caption: string) {
+    const safeName = file.name.replace(/[^\w.-]+/g, "-");
+    const path = `${user.id}/${Date.now()}-${safeName}`;
+
+    const { error: upErr } = await supabase.storage
+      .from("chatapp-photos")
+      .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+
+    if (upErr) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, pending: false, failed: true } : m)),
+      );
+      return;
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("chatapp-photos").getPublicUrl(path);
+
+    const { data, error } = await supabase
+      .from("chatapp_messages")
+      .insert({ chat_id: chatId, sender_id: user.id, content: caption, image_url: publicUrl })
+      .select()
+      .single();
+
+    if (error || !data) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, pending: false, failed: true } : m)),
+      );
+      return;
+    }
+    setMessages((prev) => {
+      const withoutDupe = prev.filter((m) => m.id !== (data as Message).id);
+      return withoutDupe.map((m) => (m.id === tempId ? (data as Message) : m));
+    });
+    void loadChats();
+  }
+
+  function retryPhoto(m: Message) {
+    if (!m.file) return;
+    const file = m.file;
+    setMessages((prev) =>
+      prev.map((x) => (x.id === m.id ? { ...x, pending: true, failed: false } : x)),
+    );
+    void uploadAndInsert(m.id, m.chat_id, file, m.content);
+  }
+
+
   const people = useMemo(
     () => Object.values(profiles).filter((p) => p.id !== user.id),
     [profiles, user.id],
@@ -466,7 +537,11 @@ export function ChatApp({
                         unread ? "font-bold text-bark" : "text-muted-foreground"
                       }`}
                     >
-                      {chat.lastMessage?.content ?? "Say hi 🙉"}
+                      {chat.lastMessage
+                        ? chat.lastMessage.content ||
+                          (chat.lastMessage.image_url ? "📷 Photo" : "")
+                        : "Say hi 🙉"}
+
                     </span>
                   </span>
                   {unread && (
@@ -551,10 +626,37 @@ export function ChatApp({
                               {profiles[m.sender_id]?.username ?? "monkey"}
                             </p>
                           )}
-                          <p className="whitespace-pre-wrap break-words text-bark">{m.content}</p>
+                          {(m.image_url || m.localUrl) && (
+                            <div className="relative my-1">
+                              <img
+                                src={m.image_url ?? m.localUrl ?? ""}
+                                alt={m.content || "Shared photo"}
+                                onClick={() => setLightbox(m.image_url ?? m.localUrl ?? null)}
+                                className="max-h-[320px] w-full max-w-[250px] cursor-zoom-in rounded-2xl border-[3px] border-bark object-cover"
+                              />
+                              {m.pending && (
+                                <span className="absolute bottom-2 left-2 rounded-full border-2 border-bark bg-cream px-2 py-0.5 text-[11px] font-bold text-bark">
+                                  🍌 Uploading...
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {m.content && (
+                            <p className="whitespace-pre-wrap break-words text-bark">{m.content}</p>
+                          )}
                           <p className="mt-0.5 text-right text-[11px] text-bark/60">
                             {m.failed ? "❌ Failed to send" : formatTime(m.created_at)}
                           </p>
+                          {m.failed && m.file && (
+                            <button
+                              type="button"
+                              onClick={() => retryPhoto(m)}
+                              className="mt-1 w-full rounded-full border-2 border-bark bg-mango px-2 py-0.5 text-xs font-bold text-bark"
+                            >
+                              🔁 Retry upload
+                            </button>
+                          )}
+
                         </div>
                         {!m.pending && !m.failed && (
                           <button
@@ -627,6 +729,30 @@ export function ChatApp({
                 }}
                 className="flex items-center gap-2 border-t-[3px] border-bark bg-cream p-3"
               >
+
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    const caption = draft.trim();
+                    setDraft("");
+                    void sendPhoto(file, caption);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  aria-label="Send a photo"
+                  className="rounded-full border-[3px] border-bark bg-leaf px-3 py-2.5 text-xl"
+                >
+                  🖼️
+                </button>
+
                 <input
                   value={draft}
                   onChange={(e) => {
@@ -664,10 +790,40 @@ export function ChatApp({
       {showSettings && (
         <SettingsModal
           userId={user.id}
+          profile={profiles[user.id]}
           onClose={() => setShowSettings(false)}
           onSaved={onBackgroundChange}
+          onProfileSaved={() => void loadChats()}
+          onNuked={() => {
+            setActiveId(null);
+            setMessages([]);
+            void loadChats();
+          }}
         />
       )}
+
+      {lightbox && (
+        <div
+          role="dialog"
+          aria-label="Photo viewer"
+          onClick={() => setLightbox(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-bark/80 p-4"
+        >
+          <img
+            src={lightbox}
+            alt="Full size photo"
+            className="max-h-full max-w-full rounded-3xl border-[3px] border-banana object-contain"
+          />
+          <button
+            onClick={() => setLightbox(null)}
+            aria-label="Close photo"
+            className="absolute right-4 top-4 rounded-full border-[3px] border-bark bg-banana px-3 py-1 text-xl font-bold text-bark"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
     </div>
   );
 }
