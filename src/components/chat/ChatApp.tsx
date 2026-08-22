@@ -537,7 +537,11 @@ export function ChatApp({
                         unread ? "font-bold text-bark" : "text-muted-foreground"
                       }`}
                     >
-                      {chat.lastMessage?.content ?? "Say hi 🙉"}
+                      {chat.lastMessage
+                        ? chat.lastMessage.content ||
+                          (chat.lastMessage.image_url ? "📷 Photo" : "")
+                        : "Say hi 🙉"}
+
                     </span>
                   </span>
                   {unread && (
