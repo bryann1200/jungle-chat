@@ -790,10 +790,18 @@ export function ChatApp({
       {showSettings && (
         <SettingsModal
           userId={user.id}
+          profile={profiles[user.id]}
           onClose={() => setShowSettings(false)}
           onSaved={onBackgroundChange}
+          onProfileSaved={() => void loadChats()}
+          onNuked={() => {
+            setActiveId(null);
+            setMessages([]);
+            void loadChats();
+          }}
         />
       )}
+
       {lightbox && (
         <div
           role="dialog"
