@@ -40,6 +40,8 @@ export function ChatApp({
   const [showNew, setShowNew] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const lastTypingSent = useRef(0);
