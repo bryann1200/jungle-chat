@@ -622,10 +622,37 @@ export function ChatApp({
                               {profiles[m.sender_id]?.username ?? "monkey"}
                             </p>
                           )}
-                          <p className="whitespace-pre-wrap break-words text-bark">{m.content}</p>
+                          {(m.image_url || m.localUrl) && (
+                            <div className="relative my-1">
+                              <img
+                                src={m.image_url ?? m.localUrl ?? ""}
+                                alt={m.content || "Shared photo"}
+                                onClick={() => setLightbox(m.image_url ?? m.localUrl ?? null)}
+                                className="max-h-[320px] w-full max-w-[250px] cursor-zoom-in rounded-2xl border-[3px] border-bark object-cover"
+                              />
+                              {m.pending && (
+                                <span className="absolute bottom-2 left-2 rounded-full border-2 border-bark bg-cream px-2 py-0.5 text-[11px] font-bold text-bark">
+                                  🍌 Uploading...
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {m.content && (
+                            <p className="whitespace-pre-wrap break-words text-bark">{m.content}</p>
+                          )}
                           <p className="mt-0.5 text-right text-[11px] text-bark/60">
                             {m.failed ? "❌ Failed to send" : formatTime(m.created_at)}
                           </p>
+                          {m.failed && m.file && (
+                            <button
+                              type="button"
+                              onClick={() => retryPhoto(m)}
+                              className="mt-1 w-full rounded-full border-2 border-bark bg-mango px-2 py-0.5 text-xs font-bold text-bark"
+                            >
+                              🔁 Retry upload
+                            </button>
+                          )}
+
                         </div>
                         {!m.pending && !m.failed && (
                           <button
