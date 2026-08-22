@@ -338,6 +338,75 @@ export function ChatApp({
     void loadChats();
   }
 
+  async function sendPhoto(file: File, caption: string) {
+    if (!activeId) return;
+    const chatId = activeId;
+    const tempId = `temp-${crypto.randomUUID()}`;
+    const localUrl = URL.createObjectURL(file);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        chat_id: chatId,
+        sender_id: user.id,
+        content: caption,
+        created_at: new Date().toISOString(),
+        pending: true,
+        localUrl,
+        file,
+      },
+    ]);
+    await uploadAndInsert(tempId, chatId, file, caption);
+  }
+
+  async function uploadAndInsert(tempId: string, chatId: string, file: File, caption: string) {
+    const safeName = file.name.replace(/[^\w.-]+/g, "-");
+    const path = `${user.id}/${Date.now()}-${safeName}`;
+
+    const { error: upErr } = await supabase.storage
+      .from("chatapp-photos")
+      .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+
+    if (upErr) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, pending: false, failed: true } : m)),
+      );
+      return;
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("chatapp-photos").getPublicUrl(path);
+
+    const { data, error } = await supabase
+      .from("chatapp_messages")
+      .insert({ chat_id: chatId, sender_id: user.id, content: caption, image_url: publicUrl })
+      .select()
+      .single();
+
+    if (error || !data) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, pending: false, failed: true } : m)),
+      );
+      return;
+    }
+    setMessages((prev) => {
+      const withoutDupe = prev.filter((m) => m.id !== (data as Message).id);
+      return withoutDupe.map((m) => (m.id === tempId ? (data as Message) : m));
+    });
+    void loadChats();
+  }
+
+  function retryPhoto(m: Message) {
+    if (!m.file) return;
+    const file = m.file;
+    setMessages((prev) =>
+      prev.map((x) => (x.id === m.id ? { ...x, pending: true, failed: false } : x)),
+    );
+    void uploadAndInsert(m.id, m.chat_id, file, m.content);
+  }
+
+
   const people = useMemo(
     () => Object.values(profiles).filter((p) => p.id !== user.id),
     [profiles, user.id],
