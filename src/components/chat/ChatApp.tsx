@@ -724,6 +724,8 @@ export function ChatApp({
                   void send();
                 }}
                 className="flex items-center gap-2 border-t-[3px] border-bark bg-cream p-3"
+              >
+
                 <input
                   ref={fileRef}
                   type="file"
