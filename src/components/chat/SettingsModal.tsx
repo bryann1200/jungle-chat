@@ -241,6 +241,13 @@ export function SettingsModal({
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
           {tab === "profile" && (
             <>
+              {bannerUrl && (
+                <img
+                  src={bannerUrl}
+                  alt="Your cover banner"
+                  className="h-16 w-full rounded-2xl border-[3px] border-bark object-cover"
+                />
+              )}
               <div className="flex items-center gap-4">
                 <JungleAvatar
                   name={username || "monkey"}
