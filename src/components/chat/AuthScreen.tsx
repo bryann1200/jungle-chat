@@ -64,7 +64,7 @@ export function AuthScreen({ backgroundUrl }: { backgroundUrl: string | null }) 
       >
         <div className="text-center">
           <div className="text-5xl">🐵</div>
-          <h1 className="mt-1 text-3xl font-extrabold text-bark">Monkey Chat</h1>
+          <h1 className="mt-1 text-3xl font-extrabold text-bark">junglechat</h1>
           <p className="text-sm text-muted-foreground">Swing in and start chatting 🍌</p>
         </div>
 
