@@ -39,7 +39,53 @@ export function SettingsModal({
   const [statusEmoji, setStatusEmoji] = useState(profile?.status_emoji ?? "");
   const [avatarColor, setAvatarColor] = useState(profile?.avatar_color ?? "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url ?? null);
+  const [bannerUrl, setBannerUrl] = useState(profile?.banner_url ?? null);
+  const [muteAll, setMuteAll] = useState(profile?.notification_prefs?.mute_all ?? false);
+  const [soundEnabled, setSoundEnabled] = useState(
+    profile?.notification_prefs?.sound_enabled ?? true,
+  );
   const [confirmNuke, setConfirmNuke] = useState("");
+
+  async function uploadBanner(file: File) {
+    setBusy(true);
+    setError(null);
+    try {
+      const path = `${userId}/${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
+      const { error: upErr } = await supabase.storage
+        .from("chatapp-banners")
+        .upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const url = supabase.storage.from("chatapp-banners").getPublicUrl(path).data.publicUrl;
+      const { error: dbErr } = await supabase
+        .from("chatapp_profiles")
+        .update({ banner_url: url })
+        .eq("id", userId);
+      if (dbErr) throw dbErr;
+      setBannerUrl(url);
+      setNote("Banner updated! 🌴");
+      onProfileSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    }
+    setBusy(false);
+  }
+
+  async function saveNotifications(next: { mute_all?: boolean; sound_enabled?: boolean }) {
+    setError(null);
+    const { data } = await supabase
+      .from("chatapp_profiles")
+      .select("notification_prefs")
+      .eq("id", userId)
+      .maybeSingle();
+    const current = ((data?.notification_prefs ?? {}) as Record<string, unknown>) || {};
+    const merged = { ...current, ...next };
+    const { error: err } = await supabase
+      .from("chatapp_profiles")
+      .update({ notification_prefs: merged })
+      .eq("id", userId);
+    if (err) return setError(err.message);
+    onProfileSaved();
+  }
 
   async function uploadTo(prefix: string, file: File) {
     const path = `${prefix}/${userId}/${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
