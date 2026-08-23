@@ -623,7 +623,45 @@ export function ChatApp({
                     )
                   )}
                 </div>
+                {nickTarget && (
+                  <button
+                    onClick={() => {
+                      setNickDraft(nicknameFor(activeChat.id, nickTarget) ?? "");
+                      setNickOpen((v) => !v);
+                    }}
+                    className="ml-auto shrink-0 rounded-full border-[3px] border-bark bg-cream px-3 py-1 text-sm font-bold text-bark"
+                  >
+                    🏷️ Set nickname
+                  </button>
+                )}
               </div>
+
+              {nickOpen && nickTarget && (
+                <div className="flex items-center gap-2 border-b-[3px] border-bark bg-cream px-4 py-2">
+                  <input
+                    value={nickDraft}
+                    onChange={(e) => setNickDraft(e.target.value)}
+                    maxLength={32}
+                    placeholder={`Nickname for ${profiles[nickTarget]?.username ?? "monkey"}`}
+                    aria-label="Nickname"
+                    className="min-w-0 flex-1 rounded-full border-[3px] border-bark bg-card px-4 py-1.5 outline-none focus:border-jungle"
+                  />
+                  <button
+                    onClick={() => void saveNickname(activeChat.id, nickTarget)}
+                    className="rounded-full border-[3px] border-bark bg-banana px-3 py-1.5 font-extrabold text-bark"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setNickOpen(false)}
+                    aria-label="Cancel nickname"
+                    className="rounded-full border-[3px] border-bark bg-card px-3 py-1.5 font-bold text-bark"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
 
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
                 {messages.map((m) => {
