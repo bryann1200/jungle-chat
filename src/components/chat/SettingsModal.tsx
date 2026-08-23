@@ -39,7 +39,53 @@ export function SettingsModal({
   const [statusEmoji, setStatusEmoji] = useState(profile?.status_emoji ?? "");
   const [avatarColor, setAvatarColor] = useState(profile?.avatar_color ?? "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url ?? null);
+  const [bannerUrl, setBannerUrl] = useState(profile?.banner_url ?? null);
+  const [muteAll, setMuteAll] = useState(profile?.notification_prefs?.mute_all ?? false);
+  const [soundEnabled, setSoundEnabled] = useState(
+    profile?.notification_prefs?.sound_enabled ?? true,
+  );
   const [confirmNuke, setConfirmNuke] = useState("");
+
+  async function uploadBanner(file: File) {
+    setBusy(true);
+    setError(null);
+    try {
+      const path = `${userId}/${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
+      const { error: upErr } = await supabase.storage
+        .from("chatapp-banners")
+        .upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const url = supabase.storage.from("chatapp-banners").getPublicUrl(path).data.publicUrl;
+      const { error: dbErr } = await supabase
+        .from("chatapp_profiles")
+        .update({ banner_url: url })
+        .eq("id", userId);
+      if (dbErr) throw dbErr;
+      setBannerUrl(url);
+      setNote("Banner updated! 🌴");
+      onProfileSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    }
+    setBusy(false);
+  }
+
+  async function saveNotifications(next: { mute_all?: boolean; sound_enabled?: boolean }) {
+    setError(null);
+    const { data } = await supabase
+      .from("chatapp_profiles")
+      .select("notification_prefs")
+      .eq("id", userId)
+      .maybeSingle();
+    const current = ((data?.notification_prefs ?? {}) as Record<string, unknown>) || {};
+    const merged = { ...current, ...next };
+    const { error: err } = await supabase
+      .from("chatapp_profiles")
+      .update({ notification_prefs: merged })
+      .eq("id", userId);
+    if (err) return setError(err.message);
+    onProfileSaved();
+  }
 
   async function uploadTo(prefix: string, file: File) {
     const path = `${prefix}/${userId}/${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
@@ -195,6 +241,13 @@ export function SettingsModal({
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
           {tab === "profile" && (
             <>
+              {bannerUrl && (
+                <img
+                  src={bannerUrl}
+                  alt="Your cover banner"
+                  className="h-16 w-full rounded-2xl border-[3px] border-bark object-cover"
+                />
+              )}
               <div className="flex items-center gap-4">
                 <JungleAvatar
                   name={username || "monkey"}
@@ -279,6 +332,58 @@ export function SettingsModal({
                       }`}
                       style={{ background: c }}
                     />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-extrabold text-bark">🖼️ Cover banner</p>
+                <label className="mt-1 inline-block cursor-pointer rounded-full border-[3px] border-bark bg-leaf px-3 py-1.5 text-sm font-bold text-bark">
+                  {busy ? "Uploading..." : "🌴 Upload banner"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={busy}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void uploadBanner(f);
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div>
+                <p className="text-sm font-extrabold text-bark">🔔 Notifications</p>
+                <div className="mt-1 space-y-2">
+                  {(
+                    [
+                      ["Mute all", muteAll, (v: boolean) => {
+                        setMuteAll(v);
+                        void saveNotifications({ mute_all: v });
+                      }],
+                      ["Sound", soundEnabled, (v: boolean) => {
+                        setSoundEnabled(v);
+                        void saveNotifications({ sound_enabled: v });
+                      }],
+                    ] as [string, boolean, (v: boolean) => void][]
+                  ).map(([label, value, set]) => (
+                    <button
+                      key={label}
+                      role="switch"
+                      aria-checked={value}
+                      onClick={() => set(!value)}
+                      className="flex w-full items-center justify-between rounded-2xl border-[3px] border-bark bg-card px-4 py-2 font-bold text-bark"
+                    >
+                      <span>{label}</span>
+                      <span
+                        className={`flex h-7 w-12 items-center rounded-full border-[3px] border-bark p-0.5 ${
+                          value ? "justify-end bg-banana" : "justify-start bg-muted"
+                        }`}
+                      >
+                        <span className="size-4 rounded-full border-2 border-bark bg-cream" />
+                      </span>
+                    </button>
                   ))}
                 </div>
               </div>

@@ -6,6 +6,7 @@ import {
   type Message,
   type Profile,
   type Reaction,
+  type Nickname,
 } from "@/lib/supabase";
 import { formatTime } from "@/lib/chat-utils";
 import { JungleAvatar } from "./Avatar";
@@ -41,6 +42,9 @@ export function ChatApp({
   const [showSettings, setShowSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [nicknames, setNicknames] = useState<Nickname[]>([]);
+  const [nickOpen, setNickOpen] = useState(false);
+  const [nickDraft, setNickDraft] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -49,7 +53,7 @@ export function ChatApp({
   const loadChats = useCallback(async () => {
     const [{ data: myParts }, { data: allProfiles }] = await Promise.all([
       supabase.from("chatapp_chat_participants").select("chat_id").eq("user_id", user.id),
-      supabase.from("chatapp_profiles").select("id, username, avatar_color"),
+      supabase.from("chatapp_profiles").select("*"),
     ]);
 
     const map: Record<string, Profile> = {};
@@ -106,6 +110,18 @@ export function ChatApp({
   useEffect(() => {
     void loadChats();
   }, [loadChats]);
+
+  const loadNicknames = useCallback(async () => {
+    const { data } = await supabase
+      .from("chatapp_nicknames")
+      .select("chat_id, set_by, target_user_id, nickname")
+      .eq("set_by", user.id);
+    setNicknames((data ?? []) as Nickname[]);
+  }, [user.id]);
+
+  useEffect(() => {
+    void loadNicknames();
+  }, [loadNicknames]);
 
   // Global realtime for sidebar previews + read receipts
   useEffect(() => {
@@ -267,6 +283,19 @@ export function ChatApp({
     [chats, activeId],
   );
 
+  const nicknameFor = useCallback(
+    (chatId: string, targetId: string) =>
+      nicknames.find((n) => n.chat_id === chatId && n.target_user_id === targetId)?.nickname ??
+      null,
+    [nicknames],
+  );
+
+  const displayName = useCallback(
+    (chatId: string, id: string) =>
+      nicknameFor(chatId, id) ?? profiles[id]?.username ?? "monkey",
+    [nicknameFor, profiles],
+  );
+
   const chatTitle = useCallback(
     (chat: ChatMeta) => {
       if (chat.is_group)
@@ -274,14 +303,39 @@ export function ChatApp({
           chat.name ||
           chat.memberIds
             .filter((id) => id !== user.id)
-            .map((id) => profiles[id]?.username ?? "monkey")
+            .map((id) => displayName(chat.id, id))
             .join(", ")
         );
       const other = chat.memberIds.find((id) => id !== user.id);
-      return (other && profiles[other]?.username) || "Lonely banana";
+      return (other && displayName(chat.id, other)) || "Lonely banana";
     },
-    [profiles, user.id],
+    [displayName, user.id],
   );
+
+  const nickTarget = useMemo(() => {
+    if (!activeChat) return null;
+    const others = activeChat.memberIds.filter((id) => id !== user.id);
+    return others.length === 1 ? (others[0] as string) : null;
+  }, [activeChat, user.id]);
+
+  async function saveNickname(chatId: string, targetId: string) {
+    const value = nickDraft.trim();
+    setNickOpen(false);
+    if (!value) {
+      await supabase
+        .from("chatapp_nicknames")
+        .delete()
+        .eq("chat_id", chatId)
+        .eq("set_by", user.id)
+        .eq("target_user_id", targetId);
+    } else {
+      await supabase.from("chatapp_nicknames").upsert(
+        { chat_id: chatId, set_by: user.id, target_user_id: targetId, nickname: value },
+        { onConflict: "chat_id,set_by,target_user_id" },
+      );
+    }
+    void loadNicknames();
+  }
 
   async function toggleReaction(messageId: string, emoji: string) {
     setPickerFor(null);
@@ -588,13 +642,51 @@ export function ChatApp({
                     activeChat.is_group && (
                       <p className="truncate text-xs text-muted-foreground">
                         {activeChat.memberIds
-                          .map((id) => (id === user.id ? myName : profiles[id]?.username ?? "?"))
+                          .map((id) => (id === user.id ? myName : displayName(activeChat.id, id)))
                           .join(" · ")}
                       </p>
                     )
                   )}
                 </div>
+                {nickTarget && (
+                  <button
+                    onClick={() => {
+                      setNickDraft(nicknameFor(activeChat.id, nickTarget) ?? "");
+                      setNickOpen((v) => !v);
+                    }}
+                    className="ml-auto shrink-0 rounded-full border-[3px] border-bark bg-cream px-3 py-1 text-sm font-bold text-bark"
+                  >
+                    🏷️ Set nickname
+                  </button>
+                )}
               </div>
+
+              {nickOpen && nickTarget && (
+                <div className="flex items-center gap-2 border-b-[3px] border-bark bg-cream px-4 py-2">
+                  <input
+                    value={nickDraft}
+                    onChange={(e) => setNickDraft(e.target.value)}
+                    maxLength={32}
+                    placeholder={`Nickname for ${profiles[nickTarget]?.username ?? "monkey"}`}
+                    aria-label="Nickname"
+                    className="min-w-0 flex-1 rounded-full border-[3px] border-bark bg-card px-4 py-1.5 outline-none focus:border-jungle"
+                  />
+                  <button
+                    onClick={() => void saveNickname(activeChat.id, nickTarget)}
+                    className="rounded-full border-[3px] border-bark bg-banana px-3 py-1.5 font-extrabold text-bark"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setNickOpen(false)}
+                    aria-label="Cancel nickname"
+                    className="rounded-full border-[3px] border-bark bg-card px-3 py-1.5 font-bold text-bark"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
 
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
                 {messages.map((m) => {
@@ -623,7 +715,7 @@ export function ChatApp({
                         >
                           {!mine && activeChat.is_group && (
                             <p className="text-xs font-extrabold text-jungle">
-                              {profiles[m.sender_id]?.username ?? "monkey"}
+                              {activeChat ? displayName(activeChat.id, m.sender_id) : "monkey"}
                             </p>
                           )}
                           {(m.image_url || m.localUrl) && (

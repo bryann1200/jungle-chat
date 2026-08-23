@@ -11,13 +11,27 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   },
 });
 
+export type NotificationPrefs = {
+  mute_all?: boolean;
+  sound_enabled?: boolean;
+};
+
 export type Profile = {
   id: string;
   username: string;
   avatar_color: string | null;
   avatar_url?: string | null;
+  banner_url?: string | null;
   bio?: string | null;
   status_emoji?: string | null;
+  notification_prefs?: NotificationPrefs | null;
+};
+
+export type Nickname = {
+  chat_id: string;
+  set_by: string;
+  target_user_id: string;
+  nickname: string;
 };
 
 export type Chat = {
