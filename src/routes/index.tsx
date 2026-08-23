@@ -9,13 +9,13 @@ export const Route = createFileRoute("/")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Monkey Chat — Real-time jungle messaging" },
+      { title: "junglechat — Real-time jungle messaging" },
       {
         name: "description",
         content:
           "Chat in real time with your troop. A playful monkey and banana themed messenger with group chats and instant delivery.",
       },
-      { property: "og:title", content: "Monkey Chat — Real-time jungle messaging" },
+      { property: "og:title", content: "junglechat — Real-time jungle messaging" },
       {
         property: "og:description",
         content: "A playful monkey and banana themed real-time chat app for you and your troop.",

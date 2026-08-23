@@ -457,7 +457,7 @@ export function ChatApp({
     <div className="flex h-dvh flex-col bg-cream">
       <header className="flex items-center gap-3 border-b-[3px] border-bark bg-banana px-4 py-3">
         <span className="text-2xl">🐵</span>
-        <h1 className="flex-1 truncate text-xl font-extrabold text-bark">Monkey Chat</h1>
+        <h1 className="flex-1 truncate text-xl font-extrabold text-bark">junglechat</h1>
         <button
           onClick={() => setShowSettings(true)}
           aria-label="Background settings"
