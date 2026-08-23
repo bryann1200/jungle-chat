@@ -312,6 +312,31 @@ export function ChatApp({
     [displayName, user.id],
   );
 
+  const nickTarget = useMemo(() => {
+    if (!activeChat) return null;
+    const others = activeChat.memberIds.filter((id) => id !== user.id);
+    return others.length === 1 ? (others[0] as string) : null;
+  }, [activeChat, user.id]);
+
+  async function saveNickname(chatId: string, targetId: string) {
+    const value = nickDraft.trim();
+    setNickOpen(false);
+    if (!value) {
+      await supabase
+        .from("chatapp_nicknames")
+        .delete()
+        .eq("chat_id", chatId)
+        .eq("set_by", user.id)
+        .eq("target_user_id", targetId);
+    } else {
+      await supabase.from("chatapp_nicknames").upsert(
+        { chat_id: chatId, set_by: user.id, target_user_id: targetId, nickname: value },
+        { onConflict: "chat_id,set_by,target_user_id" },
+      );
+    }
+    void loadNicknames();
+  }
+
   async function toggleReaction(messageId: string, emoji: string) {
     setPickerFor(null);
     const existing = reactions.find(
