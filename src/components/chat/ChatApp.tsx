@@ -564,6 +564,7 @@ export function ChatApp({
             )}
             {visibleChats.map((chat) => {
               const title = chatTitle(chat);
+              const otherId = chat.memberIds.find((id) => id !== user.id);
               const mineRead = chat.readAt[user.id] ?? "";
               const unread =
                 !!chat.lastMessage &&
@@ -581,7 +582,12 @@ export function ChatApp({
                 >
                   <JungleAvatar
                     name={title}
-                    emoji={chat.is_group ? "🌴" : undefined}
+                    imageUrl={chat.is_group ? null : profiles[otherId ?? ""]?.avatar_url ?? null}
+                    emoji={
+                      chat.is_group
+                        ? "🌴"
+                        : profiles[otherId ?? ""]?.status_emoji || undefined
+                    }
                     size={42}
                   />
                   <span className="min-w-0 flex-1">
@@ -628,7 +634,14 @@ export function ChatApp({
                 </button>
                 <JungleAvatar
                   name={chatTitle(activeChat)}
-                  emoji={activeChat.is_group ? "🌴" : undefined}
+                  imageUrl={
+                    activeChat.is_group ? null : profiles[nickTarget ?? ""]?.avatar_url ?? null
+                  }
+                  emoji={
+                    activeChat.is_group
+                      ? "🌴"
+                      : profiles[nickTarget ?? ""]?.status_emoji || undefined
+                  }
                   size={38}
                 />
                 <div className="min-w-0">
@@ -704,7 +717,13 @@ export function ChatApp({
                       key={m.id}
                       className={`flex flex-col ${mine ? "items-end" : "items-start"}`}
                     >
-                      <div className={`flex max-w-[85%] items-center gap-1 ${mine ? "flex-row-reverse" : ""}`}>
+                      <div className={`flex max-w-[85%] items-end gap-1 ${mine ? "flex-row-reverse" : ""}`}>
+                        <JungleAvatar
+                          name={activeChat ? displayName(activeChat.id, m.sender_id) : "monkey"}
+                          imageUrl={profiles[m.sender_id]?.avatar_url ?? null}
+                          emoji={profiles[m.sender_id]?.status_emoji || undefined}
+                          size={28}
+                        />
                         <div
                           className={`rounded-3xl border-[3px] border-bark px-4 py-2 ${
                             mine ? "bg-banana" : "bg-leaf"
