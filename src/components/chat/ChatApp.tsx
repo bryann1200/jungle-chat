@@ -46,6 +46,9 @@ export function ChatApp({
   const [nicknames, setNicknames] = useState<Nickname[]>([]);
   const [nickOpen, setNickOpen] = useState(false);
   const [nickDraft, setNickDraft] = useState("");
+  const [liveUnread, setLiveUnread] = useState<Record<string, number>>({});
+  const [profileFor, setProfileFor] = useState<string | null>(null);
+  const activeIdRef = useRef<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
