@@ -127,6 +127,16 @@ export function ChatApp({
     void loadNicknames();
   }, [loadNicknames]);
 
+  useEffect(() => {
+    activeIdRef.current = activeId;
+    if (activeId) setLiveUnread((prev) => (prev[activeId] ? { ...prev, [activeId]: 0 } : prev));
+  }, [activeId]);
+
+  const myChatIdsRef = useRef<string[]>([]);
+  useEffect(() => {
+    myChatIdsRef.current = chats.map((c) => c.id);
+  }, [chats]);
+
   // Global realtime for sidebar previews + read receipts
   useEffect(() => {
     const channel = supabase
@@ -134,7 +144,17 @@ export function ChatApp({
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "chatapp_messages" },
-        () => void loadChats(),
+        (payload) => {
+          const msg = payload.new as Message;
+          if (
+            msg.sender_id !== user.id &&
+            msg.chat_id !== activeIdRef.current &&
+            myChatIdsRef.current.includes(msg.chat_id)
+          ) {
+            setLiveUnread((prev) => ({ ...prev, [msg.chat_id]: (prev[msg.chat_id] ?? 0) + 1 }));
+          }
+          void loadChats();
+        },
       )
       .on(
         "postgres_changes",
