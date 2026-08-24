@@ -591,32 +591,59 @@ export function ChatApp({
               const title = chatTitle(chat);
               const otherId = chat.memberIds.find((id) => id !== user.id);
               const mineRead = chat.readAt[user.id] ?? "";
+              const liveCount = liveUnread[chat.id] ?? 0;
               const unread =
-                !!chat.lastMessage &&
-                chat.lastMessage.sender_id !== user.id &&
-                chat.lastMessage.created_at > mineRead;
+                liveCount > 0 ||
+                (!!chat.lastMessage &&
+                  chat.lastMessage.sender_id !== user.id &&
+                  chat.lastMessage.created_at > mineRead);
               return (
-                <button
+                <div
                   key={chat.id}
-                  onClick={() => {
-                    setActiveId(chat.id);
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setActiveId(chat.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") setActiveId(chat.id);
                   }}
-                  className={`mb-2 flex w-full items-center gap-3 rounded-2xl border-[3px] border-bark px-3 py-2 text-left ${
+                  className={`mb-2 flex w-full cursor-pointer items-center gap-3 rounded-2xl border-[3px] border-bark px-3 py-2 text-left ${
                     chat.id === activeId ? "bg-banana" : "bg-card"
                   }`}
                 >
-                  <JungleAvatar
-                    name={title}
-                    imageUrl={chat.is_group ? null : profiles[otherId ?? ""]?.avatar_url ?? null}
-                    emoji={
-                      chat.is_group
-                        ? "🌴"
-                        : profiles[otherId ?? ""]?.status_emoji || undefined
-                    }
-                    size={42}
-                  />
+                  <button
+                    type="button"
+                    aria-label={`View ${title} profile`}
+                    disabled={chat.is_group || !otherId}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (otherId) setProfileFor(otherId);
+                    }}
+                    className="shrink-0 rounded-full"
+                  >
+                    <JungleAvatar
+                      name={title}
+                      color={chat.is_group ? null : profiles[otherId ?? ""]?.avatar_color ?? null}
+                      imageUrl={chat.is_group ? null : profiles[otherId ?? ""]?.avatar_url ?? null}
+                      emoji={
+                        chat.is_group
+                          ? "🌴"
+                          : profiles[otherId ?? ""]?.status_emoji || undefined
+                      }
+                      size={42}
+                    />
+                  </button>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-extrabold text-bark">{title}</span>
+                    <button
+                      type="button"
+                      disabled={chat.is_group || !otherId}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (otherId) setProfileFor(otherId);
+                      }}
+                      className="block max-w-full truncate text-left font-extrabold text-bark"
+                    >
+                      {title}
+                    </button>
                     <span
                       className={`block truncate text-sm ${
                         unread ? "font-bold text-bark" : "text-muted-foreground"
