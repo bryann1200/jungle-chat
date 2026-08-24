@@ -12,6 +12,7 @@ import { formatTime } from "@/lib/chat-utils";
 import { JungleAvatar } from "./Avatar";
 import { NewChatModal } from "./NewChatModal";
 import { SettingsModal } from "./SettingsModal";
+import { ProfileModal } from "./ProfileModal";
 
 const REACTION_CHOICES = ["❤️", "🐵", "🍌", "😂", "🔥"];
 const TYPING_TTL = 4000;
