@@ -717,7 +717,13 @@ export function ChatApp({
                       key={m.id}
                       className={`flex flex-col ${mine ? "items-end" : "items-start"}`}
                     >
-                      <div className={`flex max-w-[85%] items-center gap-1 ${mine ? "flex-row-reverse" : ""}`}>
+                      <div className={`flex max-w-[85%] items-end gap-1 ${mine ? "flex-row-reverse" : ""}`}>
+                        <JungleAvatar
+                          name={activeChat ? displayName(activeChat.id, m.sender_id) : "monkey"}
+                          imageUrl={profiles[m.sender_id]?.avatar_url ?? null}
+                          emoji={profiles[m.sender_id]?.status_emoji || undefined}
+                          size={28}
+                        />
                         <div
                           className={`rounded-3xl border-[3px] border-bark px-4 py-2 ${
                             mine ? "bg-banana" : "bg-leaf"
