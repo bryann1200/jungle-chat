@@ -48,6 +48,7 @@ export function ChatApp({
   const [nickDraft, setNickDraft] = useState("");
   const [liveUnread, setLiveUnread] = useState<Record<string, number>>({});
   const [profileFor, setProfileFor] = useState<string | null>(null);
+  const [profileForChatId, setProfileForChatId] = useState<string | null>(null);
   const activeIdRef = useRef<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -616,7 +617,10 @@ export function ChatApp({
                     disabled={chat.is_group || !otherId}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (otherId) setProfileFor(otherId);
+                      if (otherId) {
+                        setProfileFor(otherId);
+                        setProfileForChatId(chat.id);
+                      }
                     }}
                     className="shrink-0 rounded-full"
                   >
@@ -638,7 +642,10 @@ export function ChatApp({
                       disabled={chat.is_group || !otherId}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (otherId) setProfileFor(otherId);
+                        if (otherId) {
+                          setProfileFor(otherId);
+                          setProfileForChatId(chat.id);
+                        }
                       }}
                       className="block max-w-full truncate text-left font-extrabold text-bark"
                     >
@@ -684,20 +691,45 @@ export function ChatApp({
                 >
                   ←
                 </button>
-                <JungleAvatar
-                  name={chatTitle(activeChat)}
-                  imageUrl={
-                    activeChat.is_group ? null : profiles[nickTarget ?? ""]?.avatar_url ?? null
-                  }
-                  emoji={
-                    activeChat.is_group
-                      ? "🌴"
-                      : profiles[nickTarget ?? ""]?.status_emoji || undefined
-                  }
-                  size={38}
-                />
+                <button
+                  type="button"
+                  aria-label={`View ${chatTitle(activeChat)} profile`}
+                  disabled={activeChat.is_group || !nickTarget}
+                  onClick={() => {
+                    if (nickTarget) {
+                      setProfileFor(nickTarget);
+                      setProfileForChatId(activeChat.id);
+                    }
+                  }}
+                  className="shrink-0 rounded-full"
+                >
+                  <JungleAvatar
+                    name={chatTitle(activeChat)}
+                    imageUrl={
+                      activeChat.is_group ? null : profiles[nickTarget ?? ""]?.avatar_url ?? null
+                    }
+                    emoji={
+                      activeChat.is_group
+                        ? "🌴"
+                        : profiles[nickTarget ?? ""]?.status_emoji || undefined
+                    }
+                    size={38}
+                  />
+                </button>
                 <div className="min-w-0">
-                  <p className="truncate font-extrabold text-bark">{chatTitle(activeChat)}</p>
+                  <button
+                    type="button"
+                    disabled={activeChat.is_group || !nickTarget}
+                    onClick={() => {
+                      if (nickTarget) {
+                        setProfileFor(nickTarget);
+                        setProfileForChatId(activeChat.id);
+                      }
+                    }}
+                    className="block max-w-full truncate text-left font-extrabold text-bark"
+                  >
+                    {chatTitle(activeChat)}
+                  </button>
                   {typingNames.length > 0 ? (
                     <p className="truncate text-xs font-bold text-jungle">
                       🐒 {typingNames.join(", ")} {typingNames.length > 1 ? "are" : "is"}{" "}
@@ -987,6 +1019,16 @@ export function ChatApp({
         </div>
       )}
 
+      {profileFor && (
+        <ProfileModal
+          profile={profiles[profileFor]}
+          nickname={profileForChatId ? nicknameFor(profileForChatId, profileFor) : null}
+          onClose={() => {
+            setProfileFor(null);
+            setProfileForChatId(null);
+          }}
+        />
+      )}
     </div>
   );
 }
