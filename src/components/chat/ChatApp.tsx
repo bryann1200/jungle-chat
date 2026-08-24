@@ -165,10 +165,11 @@ export function ChatApp({
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [loadChats]);
+  }, [loadChats, user.id]);
 
   const markRead = useCallback(
     async (chatId: string) => {
+      setLiveUnread((prev) => (prev[chatId] ? { ...prev, [chatId]: 0 } : prev));
       await supabase
         .from("chatapp_chat_participants")
         .update({ last_read_at: new Date().toISOString() })
