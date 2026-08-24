@@ -669,7 +669,7 @@ export function ChatApp({
                       className="size-3 shrink-0 rounded-full border-2 border-bark bg-mango"
                     />
                   )}
-                </button>
+                </div>
               );
             })}
           </div>
