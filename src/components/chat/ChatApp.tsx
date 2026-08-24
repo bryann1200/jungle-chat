@@ -12,6 +12,7 @@ import { formatTime } from "@/lib/chat-utils";
 import { JungleAvatar } from "./Avatar";
 import { NewChatModal } from "./NewChatModal";
 import { SettingsModal } from "./SettingsModal";
+import { ProfileModal } from "./ProfileModal";
 
 const REACTION_CHOICES = ["❤️", "🐵", "🍌", "😂", "🔥"];
 const TYPING_TTL = 4000;
@@ -45,6 +46,9 @@ export function ChatApp({
   const [nicknames, setNicknames] = useState<Nickname[]>([]);
   const [nickOpen, setNickOpen] = useState(false);
   const [nickDraft, setNickDraft] = useState("");
+  const [liveUnread, setLiveUnread] = useState<Record<string, number>>({});
+  const [profileFor, setProfileFor] = useState<string | null>(null);
+  const activeIdRef = useRef<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -123,6 +127,16 @@ export function ChatApp({
     void loadNicknames();
   }, [loadNicknames]);
 
+  useEffect(() => {
+    activeIdRef.current = activeId;
+    if (activeId) setLiveUnread((prev) => (prev[activeId] ? { ...prev, [activeId]: 0 } : prev));
+  }, [activeId]);
+
+  const myChatIdsRef = useRef<string[]>([]);
+  useEffect(() => {
+    myChatIdsRef.current = chats.map((c) => c.id);
+  }, [chats]);
+
   // Global realtime for sidebar previews + read receipts
   useEffect(() => {
     const channel = supabase
@@ -130,7 +144,17 @@ export function ChatApp({
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "chatapp_messages" },
-        () => void loadChats(),
+        (payload) => {
+          const msg = payload.new as Message;
+          if (
+            msg.sender_id !== user.id &&
+            msg.chat_id !== activeIdRef.current &&
+            myChatIdsRef.current.includes(msg.chat_id)
+          ) {
+            setLiveUnread((prev) => ({ ...prev, [msg.chat_id]: (prev[msg.chat_id] ?? 0) + 1 }));
+          }
+          void loadChats();
+        },
       )
       .on(
         "postgres_changes",
@@ -141,10 +165,11 @@ export function ChatApp({
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [loadChats]);
+  }, [loadChats, user.id]);
 
   const markRead = useCallback(
     async (chatId: string) => {
+      setLiveUnread((prev) => (prev[chatId] ? { ...prev, [chatId]: 0 } : prev));
       await supabase
         .from("chatapp_chat_participants")
         .update({ last_read_at: new Date().toISOString() })
@@ -566,32 +591,59 @@ export function ChatApp({
               const title = chatTitle(chat);
               const otherId = chat.memberIds.find((id) => id !== user.id);
               const mineRead = chat.readAt[user.id] ?? "";
+              const liveCount = liveUnread[chat.id] ?? 0;
               const unread =
-                !!chat.lastMessage &&
-                chat.lastMessage.sender_id !== user.id &&
-                chat.lastMessage.created_at > mineRead;
+                liveCount > 0 ||
+                (!!chat.lastMessage &&
+                  chat.lastMessage.sender_id !== user.id &&
+                  chat.lastMessage.created_at > mineRead);
               return (
-                <button
+                <div
                   key={chat.id}
-                  onClick={() => {
-                    setActiveId(chat.id);
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setActiveId(chat.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") setActiveId(chat.id);
                   }}
-                  className={`mb-2 flex w-full items-center gap-3 rounded-2xl border-[3px] border-bark px-3 py-2 text-left ${
+                  className={`mb-2 flex w-full cursor-pointer items-center gap-3 rounded-2xl border-[3px] border-bark px-3 py-2 text-left ${
                     chat.id === activeId ? "bg-banana" : "bg-card"
                   }`}
                 >
-                  <JungleAvatar
-                    name={title}
-                    imageUrl={chat.is_group ? null : profiles[otherId ?? ""]?.avatar_url ?? null}
-                    emoji={
-                      chat.is_group
-                        ? "🌴"
-                        : profiles[otherId ?? ""]?.status_emoji || undefined
-                    }
-                    size={42}
-                  />
+                  <button
+                    type="button"
+                    aria-label={`View ${title} profile`}
+                    disabled={chat.is_group || !otherId}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (otherId) setProfileFor(otherId);
+                    }}
+                    className="shrink-0 rounded-full"
+                  >
+                    <JungleAvatar
+                      name={title}
+                      color={chat.is_group ? null : profiles[otherId ?? ""]?.avatar_color ?? null}
+                      imageUrl={chat.is_group ? null : profiles[otherId ?? ""]?.avatar_url ?? null}
+                      emoji={
+                        chat.is_group
+                          ? "🌴"
+                          : profiles[otherId ?? ""]?.status_emoji || undefined
+                      }
+                      size={42}
+                    />
+                  </button>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-extrabold text-bark">{title}</span>
+                    <button
+                      type="button"
+                      disabled={chat.is_group || !otherId}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (otherId) setProfileFor(otherId);
+                      }}
+                      className="block max-w-full truncate text-left font-extrabold text-bark"
+                    >
+                      {title}
+                    </button>
                     <span
                       className={`block truncate text-sm ${
                         unread ? "font-bold text-bark" : "text-muted-foreground"
