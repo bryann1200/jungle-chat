@@ -175,39 +175,52 @@ export function ChatApp({
 
   // Global realtime for sidebar previews + read receipts
   useEffect(() => {
-    const channel = supabase
-      .channel("chatapp-all-messages")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chatapp_messages" },
-        (payload) => {
-          const msg = payload.new as Message;
-          if (
-            msg.sender_id !== user.id &&
-            msg.chat_id !== activeIdRef.current &&
-            myChatIdsRef.current.includes(msg.chat_id)
-          ) {
-            setLiveUnread((prev) => ({ ...prev, [msg.chat_id]: (prev[msg.chat_id] ?? 0) + 1 }));
-            if (!profilesRef.current[user.id]?.notification_prefs?.mute_all) {
-              const from = profilesRef.current[msg.sender_id]?.username ?? "A monkey";
-              void showMessageNotification({
-                title: `🐵 ${from}`,
-                body: msg.content || (msg.image_url ? "📷 Sent a photo" : "New message"),
-                tag: msg.chat_id,
-              });
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) {
+        await supabase.realtime.setAuth(data.session.access_token);
+      }
+      if (cancelled) return;
+
+      channel = supabase
+        .channel("chatapp-all-messages")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "chatapp_messages" },
+          (payload) => {
+            const msg = payload.new as Message;
+            if (
+              msg.sender_id !== user.id &&
+              msg.chat_id !== activeIdRef.current &&
+              myChatIdsRef.current.includes(msg.chat_id)
+            ) {
+              setLiveUnread((prev) => ({ ...prev, [msg.chat_id]: (prev[msg.chat_id] ?? 0) + 1 }));
+              if (!profilesRef.current[user.id]?.notification_prefs?.mute_all) {
+                const from = profilesRef.current[msg.sender_id]?.username ?? "A monkey";
+                void showMessageNotification({
+                  title: `🐵 ${from}`,
+                  body: msg.content || (msg.image_url ? "📷 Sent a photo" : "New message"),
+                  tag: msg.chat_id,
+                });
+              }
             }
-          }
-          void loadChats();
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "chatapp_chat_participants" },
-        () => void loadChats(),
-      )
-      .subscribe();
+            void loadChats();
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "chatapp_chat_participants" },
+          () => void loadChats(),
+        )
+        .subscribe();
+    })();
+
     return () => {
-      void supabase.removeChannel(channel);
+      cancelled = true;
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [loadChats, user.id]);
 
