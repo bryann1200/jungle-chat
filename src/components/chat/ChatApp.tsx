@@ -60,6 +60,7 @@ export function ChatApp({
   const [profileForChatId, setProfileForChatId] = useState<string | null>(null);
   const [notifPerm, setNotifPerm] = useState<NotifyPermission>("default");
   const [showInstallTip, setShowInstallTip] = useState(false);
+  const [rtStatus, setRtStatus] = useState<string>("init");
   const activeIdRef = useRef<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -215,7 +216,7 @@ export function ChatApp({
           { event: "*", schema: "public", table: "chatapp_chat_participants" },
           () => void loadChats(),
         )
-        .subscribe();
+        .subscribe((status) => setRtStatus(status));
     })();
 
     return () => {
@@ -594,6 +595,13 @@ export function ChatApp({
       <header className="flex items-center gap-3 border-b-[3px] border-bark bg-banana px-4 py-3">
         <span className="text-2xl">🐵</span>
         <h1 className="flex-1 truncate text-xl font-extrabold text-bark">junglechat</h1>
+        <span
+          title={`realtime: ${rtStatus}`}
+          aria-label={`realtime status: ${rtStatus}`}
+          className="rounded-full border-[3px] border-bark bg-cream px-2 py-1 text-[10px] font-bold text-bark"
+        >
+          {rtStatus === "SUBSCRIBED" ? "🟢" : rtStatus === "init" ? "⚪" : "🔴"} {rtStatus}
+        </span>
         <button
           onClick={() => {
             if (notifPerm === "granted") return;
