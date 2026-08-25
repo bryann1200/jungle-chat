@@ -34,8 +34,16 @@ function Index() {
     void supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setReady(true);
+      if (data.session?.access_token) {
+        void supabase.realtime.setAuth(data.session.access_token);
+      }
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s);
+      if (s?.access_token) {
+        void supabase.realtime.setAuth(s.access_token);
+      }
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
