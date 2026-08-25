@@ -1097,6 +1097,29 @@ export function ChatApp({
           }}
         />
       )}
+
+      {showInstallTip && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bark/50 p-4">
+          <div className="card-bubbly w-full max-w-sm space-y-3 p-5">
+            <h2 className="text-xl font-extrabold text-bark">🔔 Add junglechat to your Home Screen</h2>
+            <p className="text-sm text-muted-foreground">
+              On iPhone, notifications only work once the app lives on your Home Screen:
+            </p>
+            <ol className="list-decimal space-y-1 pl-5 text-sm font-bold text-bark">
+              <li>Tap the Share button in Safari</li>
+              <li>Choose “Add to Home Screen”</li>
+              <li>Open junglechat from the icon, then tap 🔕 again</li>
+            </ol>
+            <button
+              onClick={() => setShowInstallTip(false)}
+              className="w-full rounded-full border-[3px] border-bark bg-banana px-4 py-2.5 font-extrabold text-bark"
+              style={{ boxShadow: "var(--shadow-bubbly)" }}
+            >
+              Got it 🍌
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
