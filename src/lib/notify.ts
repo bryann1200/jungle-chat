@@ -52,9 +52,11 @@ export async function showMessageNotification(opts: {
   title: string;
   body: string;
   tag?: string;
+  force?: boolean;
 }) {
   if (!notifySupported() || Notification.permission !== "granted") return;
-  if (typeof document !== "undefined" && document.visibilityState === "visible") return;
+  if (!opts.force && typeof document !== "undefined" && document.visibilityState === "visible")
+    return;
   const options: NotificationOptions = {
     body: opts.body,
     icon: "/icon-192.png",
