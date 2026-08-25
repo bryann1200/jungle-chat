@@ -225,6 +225,15 @@ export function ChatApp({
     };
   }, [loadChats, user.id]);
 
+  // Polling fallback: refresh chat list every few seconds so unread state
+  // stays correct even if the realtime socket silently stops delivering.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") void loadChats();
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [loadChats]);
+
   const markRead = useCallback(
     async (chatId: string) => {
       setLiveUnread((prev) => (prev[chatId] ? { ...prev, [chatId]: 0 } : prev));
