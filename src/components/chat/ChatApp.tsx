@@ -13,6 +13,15 @@ import { JungleAvatar } from "./Avatar";
 import { NewChatModal } from "./NewChatModal";
 import { SettingsModal } from "./SettingsModal";
 import { ProfileModal } from "./ProfileModal";
+import {
+  currentPermission,
+  isIos,
+  isStandalone,
+  registerServiceWorker,
+  requestNotificationPermission,
+  showMessageNotification,
+  type NotifyPermission,
+} from "@/lib/notify";
 
 const REACTION_CHOICES = ["❤️", "🐵", "🍌", "😂", "🔥"];
 const TYPING_TTL = 4000;
@@ -49,6 +58,8 @@ export function ChatApp({
   const [liveUnread, setLiveUnread] = useState<Record<string, number>>({});
   const [profileFor, setProfileFor] = useState<string | null>(null);
   const [profileForChatId, setProfileForChatId] = useState<string | null>(null);
+  const [notifPerm, setNotifPerm] = useState<NotifyPermission>("default");
+  const [showInstallTip, setShowInstallTip] = useState(false);
   const activeIdRef = useRef<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -138,6 +149,30 @@ export function ChatApp({
     myChatIdsRef.current = chats.map((c) => c.id);
   }, [chats]);
 
+  const profilesRef = useRef<Record<string, Profile>>({});
+  useEffect(() => {
+    profilesRef.current = profiles;
+  }, [profiles]);
+
+  // Home-screen app support: register the service worker once
+  useEffect(() => {
+    void registerServiceWorker();
+    setNotifPerm(currentPermission());
+  }, []);
+
+  async function enableNotifications() {
+    const perm = await requestNotificationPermission();
+    setNotifPerm(perm);
+    if (perm === "granted") {
+      void showMessageNotification({
+        title: "🐵 junglechat",
+        body: "Notifications are on — you'll hear it when the troop chats!",
+        tag: "junglechat-welcome",
+      });
+    }
+  }
+
+
   // Global realtime for sidebar previews + read receipts
   useEffect(() => {
     const channel = supabase
@@ -153,6 +188,14 @@ export function ChatApp({
             myChatIdsRef.current.includes(msg.chat_id)
           ) {
             setLiveUnread((prev) => ({ ...prev, [msg.chat_id]: (prev[msg.chat_id] ?? 0) + 1 }));
+            if (!profilesRef.current[user.id]?.notification_prefs?.mute_all) {
+              const from = profilesRef.current[msg.sender_id]?.username ?? "A monkey";
+              void showMessageNotification({
+                title: `🐵 ${from}`,
+                body: msg.content || (msg.image_url ? "📷 Sent a photo" : "New message"),
+                tag: msg.chat_id,
+              });
+            }
           }
           void loadChats();
         },
@@ -539,6 +582,23 @@ export function ChatApp({
         <span className="text-2xl">🐵</span>
         <h1 className="flex-1 truncate text-xl font-extrabold text-bark">junglechat</h1>
         <button
+          onClick={() => {
+            if (notifPerm === "granted") return;
+            if (isIos() && !isStandalone()) {
+              setShowInstallTip(true);
+              return;
+            }
+            void enableNotifications();
+          }}
+          aria-label={
+            notifPerm === "granted" ? "Notifications enabled" : "Enable notifications"
+          }
+          title={notifPerm === "granted" ? "Notifications on" : "Enable notifications"}
+          className="rounded-full border-[3px] border-bark bg-cream px-3 py-1.5 text-lg"
+        >
+          {notifPerm === "granted" ? "🔔" : "🔕"}
+        </button>
+        <button
           onClick={() => setShowSettings(true)}
           aria-label="Background settings"
           className="rounded-full border-[3px] border-bark bg-cream px-3 py-1.5 text-lg"
@@ -663,12 +723,20 @@ export function ChatApp({
 
                     </span>
                   </span>
-                  {unread && (
-                    <span
-                      aria-label="Unread"
-                      className="size-3 shrink-0 rounded-full border-2 border-bark bg-mango"
-                    />
-                  )}
+                  {unread &&
+                    (liveCount > 0 ? (
+                      <span
+                        aria-label={`${liveCount} unread`}
+                        className="flex min-w-6 shrink-0 items-center justify-center rounded-full border-2 border-bark bg-mango px-1.5 text-xs font-extrabold text-bark"
+                      >
+                        {liveCount > 9 ? "9+" : liveCount}
+                      </span>
+                    ) : (
+                      <span
+                        aria-label="Unread"
+                        className="size-3 shrink-0 rounded-full border-2 border-bark bg-mango"
+                      />
+                    ))}
                 </div>
               );
             })}
@@ -1028,6 +1096,29 @@ export function ChatApp({
             setProfileForChatId(null);
           }}
         />
+      )}
+
+      {showInstallTip && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bark/50 p-4">
+          <div className="card-bubbly w-full max-w-sm space-y-3 p-5">
+            <h2 className="text-xl font-extrabold text-bark">🔔 Add junglechat to your Home Screen</h2>
+            <p className="text-sm text-muted-foreground">
+              On iPhone, notifications only work once the app lives on your Home Screen:
+            </p>
+            <ol className="list-decimal space-y-1 pl-5 text-sm font-bold text-bark">
+              <li>Tap the Share button in Safari</li>
+              <li>Choose “Add to Home Screen”</li>
+              <li>Open junglechat from the icon, then tap 🔕 again</li>
+            </ol>
+            <button
+              onClick={() => setShowInstallTip(false)}
+              className="w-full rounded-full border-[3px] border-bark bg-banana px-4 py-2.5 font-extrabold text-bark"
+              style={{ boxShadow: "var(--shadow-bubbly)" }}
+            >
+              Got it 🍌
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
