@@ -138,6 +138,30 @@ export function ChatApp({
     myChatIdsRef.current = chats.map((c) => c.id);
   }, [chats]);
 
+  const profilesRef = useRef<Record<string, Profile>>({});
+  useEffect(() => {
+    profilesRef.current = profiles;
+  }, [profiles]);
+
+  // Home-screen app support: register the service worker once
+  useEffect(() => {
+    void registerServiceWorker();
+    setNotifPerm(currentPermission());
+  }, []);
+
+  async function enableNotifications() {
+    const perm = await requestNotificationPermission();
+    setNotifPerm(perm);
+    if (perm === "granted") {
+      void showMessageNotification({
+        title: "🐵 junglechat",
+        body: "Notifications are on — you'll hear it when the troop chats!",
+        tag: "junglechat-welcome",
+      });
+    }
+  }
+
+
   // Global realtime for sidebar previews + read receipts
   useEffect(() => {
     const channel = supabase
