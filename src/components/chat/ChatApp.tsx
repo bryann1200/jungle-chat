@@ -835,13 +835,23 @@ export function ChatApp({
                     )
                   )}
                 </div>
+                <button
+                  onClick={() =>
+                    window.open("https://meet.google.com/new", "_blank", "noopener,noreferrer")
+                  }
+                  aria-label="Start a video call"
+                  title="Start a video call"
+                  className="ml-auto shrink-0 rounded-full border-[3px] border-bark bg-cream px-3 py-1 text-sm font-bold text-bark"
+                >
+                  📹 Call
+                </button>
                 {nickTarget && (
                   <button
                     onClick={() => {
                       setNickDraft(nicknameFor(activeChat.id, nickTarget) ?? "");
                       setNickOpen((v) => !v);
                     }}
-                    className="ml-auto shrink-0 rounded-full border-[3px] border-bark bg-cream px-3 py-1 text-sm font-bold text-bark"
+                    className="shrink-0 rounded-full border-[3px] border-bark bg-cream px-3 py-1 text-sm font-bold text-bark"
                   >
                     🏷️ Set nickname
                   </button>
