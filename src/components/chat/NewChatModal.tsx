@@ -82,11 +82,21 @@ export function NewChatModal({
           Pick one monkey for a direct chat, or several for a group.
         </p>
 
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search monkeys..."
+          className="w-full rounded-2xl border-[3px] border-bark bg-cream px-4 py-2.5 outline-none focus:border-jungle"
+        />
+
         <div className="-mx-1 flex-1 space-y-2 overflow-y-auto px-1">
-          {people.length === 0 && (
-            <p className="text-sm text-muted-foreground">No other monkeys yet 🍌</p>
+          {query.length === 0 && (
+            <p className="text-sm text-muted-foreground">Type to find monkeys 🐵</p>
           )}
-          {people.map((p) => (
+          {query.length > 0 && results.length === 0 && (
+            <p className="text-sm text-muted-foreground">No monkeys match "{search}" 🍌</p>
+          )}
+          {results.map((p) => (
             <button
               key={p.id}
               onClick={() => toggle(p.id)}
