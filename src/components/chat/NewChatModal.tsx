@@ -15,9 +15,18 @@ export function NewChatModal({
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [groupName, setGroupName] = useState("");
+  const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isGroup = selected.length > 1;
+
+  const query = search.trim().toLowerCase();
+  const results = query.length === 0
+    ? []
+    : people
+        .filter((p) => p.id !== me)
+        .filter((p) => p.username.toLowerCase().startsWith(query) || p.username.toLowerCase().includes(query))
+        .slice(0, 10);
 
   function toggle(id: string) {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
