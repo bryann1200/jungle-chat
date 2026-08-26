@@ -15,9 +15,18 @@ export function NewChatModal({
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [groupName, setGroupName] = useState("");
+  const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isGroup = selected.length > 1;
+
+  const query = search.trim().toLowerCase();
+  const results = query.length === 0
+    ? []
+    : people
+        .filter((p) => p.id !== me)
+        .filter((p) => p.username.toLowerCase().startsWith(query) || p.username.toLowerCase().includes(query))
+        .slice(0, 10);
 
   function toggle(id: string) {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
@@ -73,11 +82,21 @@ export function NewChatModal({
           Pick one monkey for a direct chat, or several for a group.
         </p>
 
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search monkeys..."
+          className="w-full rounded-2xl border-[3px] border-bark bg-cream px-4 py-2.5 outline-none focus:border-jungle"
+        />
+
         <div className="-mx-1 flex-1 space-y-2 overflow-y-auto px-1">
-          {people.length === 0 && (
-            <p className="text-sm text-muted-foreground">No other monkeys yet 🍌</p>
+          {query.length === 0 && (
+            <p className="text-sm text-muted-foreground">Type to find monkeys 🐵</p>
           )}
-          {people.map((p) => (
+          {query.length > 0 && results.length === 0 && (
+            <p className="text-sm text-muted-foreground">No monkeys match "{search}" 🍌</p>
+          )}
+          {results.map((p) => (
             <button
               key={p.id}
               onClick={() => toggle(p.id)}
