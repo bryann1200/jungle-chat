@@ -246,7 +246,7 @@ export function ChatApp({
     const inbox = supabase
       .channel(`call-inbox-${user.id}`)
       .on("broadcast", { event: "incoming_call" }, (msg) => {
-        const payload = msg.payload as { chatId: string; from: string };
+        const payload = msg["payload"] as { chatId: string; from: string };
         setCallState({ chatId: payload.chatId, otherId: payload.from, mode: "incoming" });
       })
       .subscribe();
