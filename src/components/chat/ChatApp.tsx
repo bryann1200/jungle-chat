@@ -14,6 +14,8 @@ import { NewChatModal } from "./NewChatModal";
 import { SettingsModal } from "./SettingsModal";
 import { ProfileModal } from "./ProfileModal";
 import { CallModal } from "./CallModal";
+import { GroupSettingsModal } from "./GroupSettingsModal";
+
 import {
   currentPermission,
   isIos,
@@ -51,6 +53,8 @@ export function ChatApp({
   const [draft, setDraft] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showGroupSettings, setShowGroupSettings] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [nicknames, setNicknames] = useState<Nickname[]>([]);
@@ -242,7 +246,7 @@ export function ChatApp({
     const inbox = supabase
       .channel(`call-inbox-${user.id}`)
       .on("broadcast", { event: "incoming_call" }, (msg) => {
-        const payload = msg.payload as { chatId: string; from: string };
+        const payload = msg["payload"] as { chatId: string; from: string };
         setCallState({ chatId: payload.chatId, otherId: payload.from, mode: "incoming" });
       })
       .subscribe();
@@ -884,6 +888,14 @@ export function ChatApp({
                 >
                   📹 Call
                 </button>
+                {activeChat.is_group && (
+                  <button
+                    onClick={() => setShowGroupSettings(true)}
+                    className="shrink-0 rounded-full border-[3px] border-bark bg-cream px-3 py-1 text-sm font-bold text-bark"
+                  >
+                    ⚙️ Group
+                  </button>
+                )}
                 {nickTarget && (
                   <button
                     onClick={() => {
@@ -895,6 +907,7 @@ export function ChatApp({
                     🏷️ Set nickname
                   </button>
                 )}
+
               </div>
 
               {nickOpen && nickTarget && (
@@ -1177,6 +1190,19 @@ export function ChatApp({
           onClose={() => setCallState(null)}
         />
       )}
+
+      {showGroupSettings && activeChat?.is_group && (
+        <GroupSettingsModal
+          chat={activeChat}
+          profiles={profiles}
+          userId={user.id}
+          onClose={() => setShowGroupSettings(false)}
+          onChanged={() => void loadChats()}
+          onLeft={() => setActiveId(null)}
+        />
+      )}
+
+
 
       {showInstallTip && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-bark/50 p-4">
