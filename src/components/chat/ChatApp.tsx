@@ -1191,6 +1191,19 @@ export function ChatApp({
         />
       )}
 
+      {showGroupSettings && activeChat?.is_group && (
+        <GroupSettingsModal
+          chat={activeChat}
+          profiles={profiles}
+          userId={user.id}
+          onClose={() => setShowGroupSettings(false)}
+          onChanged={() => void loadChats()}
+          onLeft={() => setActiveId(null)}
+        />
+      )}
+
+
+
       {showInstallTip && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-bark/50 p-4">
           <div className="card-bubbly w-full max-w-sm space-y-3 p-5">
