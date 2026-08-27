@@ -13,6 +13,7 @@ import { JungleAvatar } from "./Avatar";
 import { NewChatModal } from "./NewChatModal";
 import { SettingsModal } from "./SettingsModal";
 import { ProfileModal } from "./ProfileModal";
+import { CallModal } from "./CallModal";
 import {
   currentPermission,
   isIos,
@@ -58,6 +59,9 @@ export function ChatApp({
   const [liveUnread, setLiveUnread] = useState<Record<string, number>>({});
   const [profileFor, setProfileFor] = useState<string | null>(null);
   const [profileForChatId, setProfileForChatId] = useState<string | null>(null);
+  const [callState, setCallState] = useState<
+    { chatId: string; otherId: string; mode: "outgoing" | "incoming" } | null
+  >(null);
   const [notifPerm, setNotifPerm] = useState<NotifyPermission>("default");
   const [showInstallTip, setShowInstallTip] = useState(false);
   const activeIdRef = useRef<string | null>(null);
@@ -232,6 +236,39 @@ export function ChatApp({
     }, 6000);
     return () => clearInterval(interval);
   }, [loadChats]);
+
+  // Listen for incoming calls addressed to me
+  useEffect(() => {
+    const inbox = supabase
+      .channel(`call-inbox-${user.id}`)
+      .on("broadcast", { event: "incoming_call" }, (msg) => {
+        const payload = msg.payload as { chatId: string; from: string };
+        setCallState({ chatId: payload.chatId, otherId: payload.from, mode: "incoming" });
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(inbox);
+    };
+  }, [user.id]);
+
+  const startCall = useCallback(
+    async (chatId: string, otherId: string) => {
+      setCallState({ chatId, otherId, mode: "outgoing" });
+      const ring = supabase.channel(`call-inbox-${otherId}`);
+      ring.subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          void ring
+            .send({
+              type: "broadcast",
+              event: "incoming_call",
+              payload: { chatId, from: user.id },
+            })
+            .then(() => void supabase.removeChannel(ring));
+        }
+      });
+    },
+    [user.id],
+  );
 
   const markRead = useCallback(
     async (chatId: string) => {
@@ -836,9 +873,11 @@ export function ChatApp({
                   )}
                 </div>
                 <button
-                  onClick={() =>
-                    window.open("https://meet.google.com/new", "_blank", "noopener,noreferrer")
-                  }
+                  onClick={() => {
+                    if (activeChat && nickTarget) {
+                      void startCall(activeChat.id, nickTarget);
+                    }
+                  }}
                   aria-label="Start a video call"
                   title="Start a video call"
                   className="ml-auto shrink-0 rounded-full border-[3px] border-bark bg-cream px-3 py-1 text-sm font-bold text-bark"
@@ -1127,6 +1166,15 @@ export function ChatApp({
             setProfileFor(null);
             setProfileForChatId(null);
           }}
+        />
+      )}
+
+      {callState && (
+        <CallModal
+          chatId={callState.chatId}
+          otherProfile={profiles[callState.otherId]}
+          mode={callState.mode}
+          onClose={() => setCallState(null)}
         />
       )}
 
