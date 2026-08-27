@@ -14,6 +14,8 @@ import { NewChatModal } from "./NewChatModal";
 import { SettingsModal } from "./SettingsModal";
 import { ProfileModal } from "./ProfileModal";
 import { CallModal } from "./CallModal";
+import { GroupSettingsModal } from "./GroupSettingsModal";
+
 import {
   currentPermission,
   isIos,
@@ -51,6 +53,8 @@ export function ChatApp({
   const [draft, setDraft] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showGroupSettings, setShowGroupSettings] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [nicknames, setNicknames] = useState<Nickname[]>([]);
