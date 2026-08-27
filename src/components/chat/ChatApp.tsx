@@ -884,6 +884,14 @@ export function ChatApp({
                 >
                   📹 Call
                 </button>
+                {activeChat.is_group && (
+                  <button
+                    onClick={() => setShowGroupSettings(true)}
+                    className="shrink-0 rounded-full border-[3px] border-bark bg-cream px-3 py-1 text-sm font-bold text-bark"
+                  >
+                    ⚙️ Group
+                  </button>
+                )}
                 {nickTarget && (
                   <button
                     onClick={() => {
@@ -895,6 +903,7 @@ export function ChatApp({
                     🏷️ Set nickname
                   </button>
                 )}
+
               </div>
 
               {nickOpen && nickTarget && (
